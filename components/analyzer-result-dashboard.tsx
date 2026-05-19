@@ -86,6 +86,13 @@ function formatPercent(value: unknown) {
   return `${Math.round(unit)}%`;
 }
 
+function formatPercentExact(value: unknown, decimals = 2) {
+  const n = numberValue(value);
+  if (n === null) return "-";
+  const unit = n > 1 ? n : n * 100;
+  return `${unit.toFixed(decimals)}%`;
+}
+
 function formatSeconds(value: unknown) {
   const n = numberValue(value);
   if (n === null) return "-";
@@ -123,6 +130,11 @@ function percentNumber(value: unknown) {
 
 function kpiMetric(value: unknown, suffix = "") {
   const rendered = suffix === "%" ? formatPercent(value) : formatScoreNumber(value);
+  return rendered === "-" ? null : rendered;
+}
+
+function kpiMetricExactPercent(value: unknown, decimals = 2) {
+  const rendered = formatPercentExact(value, decimals);
   return rendered === "-" ? null : rendered;
 }
 
@@ -519,8 +531,8 @@ export function AnalyzerResultDashboard({
     audioResult?.real_probability,
     audioResult?.result?.probabilities?.Real,
   );
-  const audioDeepfake = formatPercent(audioDeepfakeRaw);
-  const audioReal = formatPercent(audioRealRaw);
+  const audioDeepfake = formatPercentExact(audioDeepfakeRaw);
+  const audioReal = formatPercentExact(audioRealRaw);
   const textAiLabel = firstPresent(summary?.ai_label, textResult?.ai_label, textResult?.AI, textResult?.user_output?.AI, textResult?.complete_result?.AI);
   const textFactLabel = firstPresent(summary?.fact_label, textResult?.fact_label, textResult?.FACT, textResult?.user_output?.FACT, textResult?.complete_result?.FACT);
   const textAiScore = firstPresent(
@@ -557,8 +569,8 @@ export function AnalyzerResultDashboard({
   const audioRealNum = percentNumber(audioRealRaw);
   const audioIsDeepfake = (audioFakeNum ?? -1) >= (audioRealNum ?? -1);
   const audioDominantRaw = audioIsDeepfake ? audioDeepfakeRaw : audioRealRaw;
-  const audioKpiValue = kpiMetric(audioDominantRaw, "%") ?? statusLabel(audioStatus);
-  const audioKpiSubtitle = kpiMetric(audioDominantRaw, "%") ? (audioIsDeepfake ? "Deepfake Probability" : "Real Probability") : "Status";
+  const audioKpiValue = kpiMetricExactPercent(audioDominantRaw) ?? statusLabel(audioStatus);
+  const audioKpiSubtitle = kpiMetricExactPercent(audioDominantRaw) ? (audioIsDeepfake ? "Deepfake Probability" : "Real Probability") : "Status";
   const textKpiValue = kpiMetric(textAiScore) ?? statusLabel(textStatus);
   const textKpiSubtitle = kpiMetric(textAiScore) ? "Ai Score" : "Status";
   const videoProgress = percentNumber(videoFakeRaw) ?? 0;

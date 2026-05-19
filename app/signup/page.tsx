@@ -300,7 +300,7 @@ export default function SignupPage() {
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.75)] lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
             <button
               type="button"
-              onClick={() => router.back()}
+              onClick={() => router.push("/")}
               className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200/90 transition hover:bg-white/10 hover:text-white"
             >
               <span aria-hidden="true">←</span>

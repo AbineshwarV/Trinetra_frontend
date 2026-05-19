@@ -10,9 +10,9 @@ import {
   FiLock,
 } from "react-icons/fi";
 
-export default function Home() {
-  const navItems = ["Product", "Solutions", "Resources", "Pricing", "About Us"];
+import AnnouncementBanner from "../components/announcement-banner";
 
+export default function Home() {
   const features = [
     {
       title: "Advanced Detection",
@@ -65,6 +65,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#030b1e] text-white">
+      <AnnouncementBanner />
       {/* HERO */}
       <section className="relative isolate overflow-hidden pb-20">
         {/* Background */}
@@ -88,17 +89,7 @@ export default function Home() {
               <span className="text-lg font-bold tracking-wide">TRINETRA</span>
             </div>
 
-            <nav className="hidden items-center gap-8 text-sm text-white/70 lg:flex">
-              {navItems.map((item) => (
-                <a
-                  key={item}
-                  href="#"
-                  className="transition hover:text-white"
-                >
-                  {item}
-                </a>
-              ))}
-            </nav>
+            <nav className="hidden lg:block" />
 
             <div className="flex items-center gap-3">
               <Link
@@ -152,22 +143,25 @@ export default function Home() {
                   Try Trinetra
                 </Link>
 
-                <button className="rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-white/10">
+                <a
+                  href="#how-it-works"
+                  className="rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-white/10"
+                >
                   How It Works
-                </button>
+                </a>
               </div>
 
               {/* STATS */}
               <div className="mt-12 flex flex-wrap gap-10">
                 <div>
-                  <p className="text-3xl font-bold text-[#ffd230]">-</p>
+                  <p className="text-3xl font-bold text-[#ffd230]">92%</p>
                   <p className="mt-1 text-sm text-white/60">
                     Detection Accuracy
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-3xl font-bold text-[#ffd230]">-</p>
+                  <p className="text-3xl font-bold text-[#ffd230]">50</p>
                   <p className="mt-1 text-sm text-white/60">
                     Files Processed
                   </p>
@@ -199,9 +193,6 @@ export default function Home() {
                     </h3>
                   </div>
 
-                  <span className="rounded-full border border-[#22c55e]/20 bg-[#22c55e]/10 px-3 py-1 text-xs text-[#4ade80]">
-                    Live
-                  </span>
                 </div>
 
                 {/* METRICS */}
@@ -229,11 +220,11 @@ export default function Home() {
                 <div className="mt-6 rounded-2xl border border-white/10 bg-[#12244d]/50 p-5">
                   <div className="mb-3 flex items-center justify-between text-sm text-white/70">
                     <span>Detection Confidence</span>
-                    <span>-</span>
+                    <span>92%</span>
                   </div>
 
                   <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full w-[98%] rounded-full bg-linear-to-r from-[#ffd230] to-[#ff9f1a]" />
+                    <div className="h-full w-[92%] rounded-full bg-linear-to-r from-[#ffd230] to-[#ff9f1a]" />
                   </div>
                 </div>
 
@@ -307,7 +298,10 @@ export default function Home() {
       </section>
 
       {/* WORKFLOW */}
-      <section className="relative overflow-hidden bg-[#020d24] px-5 py-24 md:px-8">
+      <section
+        id="how-it-works"
+        className="relative overflow-hidden bg-[#020d24] px-5 py-24 md:px-8"
+      >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,210,48,0.12),transparent_35%),radial-gradient(circle_at_20%_100%,rgba(29,107,255,0.15),transparent_40%)]" />
 
         <div className="relative mx-auto max-w-7xl">
