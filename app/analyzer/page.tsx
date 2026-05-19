@@ -1,20 +1,149 @@
-"use client";
+﻿"use client";
 
 
-import type { CSSProperties, ChangeEvent, FormEvent } from "react";
-import { useRef, useState } from "react";
-import { ArrowRight, CloudUpload, Sparkles } from "lucide-react";
-import { AnalyzerHeader } from "@/components/analyzer-header";
-import { AnalyzerSidebar } from "@/components/analyzer-sidebar";
-import { AnalyzerSessionProvider } from "@/components/analyzer-session";
-import { SidebarInset, SidebarProvider } from "../../components/ui/sidebar";
+import type { ChangeEvent, DragEvent, FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, CheckCircle2, CloudUpload, Clock3, Layers, Loader2, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { AnalyzerResultDashboard } from "@/components/analyzer-result-dashboard";
+import { apiFetch } from "@/lib/api";
+
+type AnalysisStage = "idle" | "preparing" | "queued" | "analyzing" | "finalizing" | "complete" | "error";
+
+type BackendJobStatus = "queued" | "running" | "completed" | "failed";
+
+interface JobResponse {
+  job_id?: string;
+  id?: string;
+  jobId?: string;
+  status?: BackendJobStatus | string;
+  status_message?: string;
+  progress_percent?: number;
+  analysis_id?: string;
+  error?: string;
+}
+
+const RUNNING_PROGRESS_CAP = 94;
+const STAGE_MILESTONES = [
+  { name: "Extracting frames", progress: 20, icon: "ðŸŽžï¸" },
+  { name: "Video analysis", progress: 35, icon: "ðŸ“¹" },
+  { name: "Audio analysis", progress: 55, icon: "ðŸ”Š" },
+  { name: "Text analysis", progress: 75, icon: "ðŸ“" },
+  { name: "Final scoring", progress: 90, icon: "âœ…" },
+] as const;
+
+const getMilestoneStatus = (progress: number): string => {
+  if (progress >= 90) return "Final scoring in progress...";
+  if (progress >= 75) return "Text analysis in progress...";
+  if (progress >= 55) return "Audio analysis in progress...";
+  if (progress >= 35) return "Video analysis in progress...";
+  if (progress >= 20) return "Extracting frames...";
+  return "Preparing analysis...";
+};
+
+const ANALYSIS_STEPS: Array<{
+  key: AnalysisStage;
+  title: string;
+  description: string;
+  icon: any;
+}> = [
+  {
+    key: "preparing",
+    title: "Preparing input",
+    description: "Validating media and creating your analysis request.",
+    icon: Clock3,
+  },
+  {
+    key: "queued",
+    title: "Queued for scan",
+    description: "Your request has been accepted and queued by the analyzer.",
+    icon: Layers,
+  },
+  {
+    key: "analyzing",
+    title: "Analyzing signals",
+    description: "Checking video, audio, and text artifacts in real time.",
+    icon: MessageCircle,
+  },
+  {
+    key: "finalizing",
+    title: "Fusing verdict",
+    description: "Combining model outputs into a trusted risk score.",
+    icon: ShieldCheck,
+  },
+];
+
+const PROGRESS_ITEMS = [
+  { label: "Hashing media stream", detail: "Analyze file integrity and frame signatures." },
+  { label: "Spatial forensics Â· GAN signature", detail: "Detect manipulated pixels and texture artifacts." },
+  { label: "Temporal coherence Â· frame analysis", detail: "Check motion consistency across frames." },
+  { label: "Acoustic fingerprint Â· voice clone check", detail: "Verify audio authenticity and speaker traces." },
+  { label: "Fusing trinity verdict", detail: "Combine video, audio, and text evidence." },
+];
+
+const getProgressPercent = (stage: AnalysisStage) => {
+  switch (stage) {
+    case "preparing":
+      return 10;
+    case "queued":
+      return 25;
+    case "analyzing":
+      return 50;
+    case "finalizing":
+      return 85;
+    case "complete":
+      return 100;
+    case "error":
+      return 100;
+    default:
+      return 0;
+  }
+};
+
+const getStageLabel = (stage: AnalysisStage) => {
+  switch (stage) {
+    case "preparing":
+      return "Initializing analysis";
+    case "queued":
+      return "Queued for scan";
+    case "analyzing":
+      return "Scanning signals";
+    case "finalizing":
+      return "Fusing final verdict";
+    case "complete":
+      return "Analysis complete";
+    case "error":
+      return "Analysis failed";
+    default:
+      return "Ready to analyze";
+  }
+};
+
+function normalizeDashboardResult(payload: any) {
+  const db = payload?.db ?? {};
+  const record = payload?.record ?? payload?.result ?? payload ?? {};
+  const nestedResult = record?.result ?? {};
+  const merged = { ...db, ...record, analysis_id: db?.analysis_id ?? record?.analysis_id };
+
+  return {
+    result: merged,
+    summary: record?.summary ?? nestedResult?.summary ?? {},
+    timing: record?.timing ?? nestedResult?.timing ?? null,
+  };
+}
 
 export default function AnalyzerPage() {
   const [file, setFile] = useState<File | null>(null);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState<AnalysisStage>("idle");
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [progressPercent, setProgressPercent] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const jobEventsRef = useRef<EventSource | null>(null);
+  const backendStatusRef = useRef<string>("");
 
 
 
@@ -28,7 +157,7 @@ export default function AnalyzerPage() {
   };
 
   // Handle file drop
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
@@ -37,7 +166,7 @@ export default function AnalyzerPage() {
     }
   };
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
 
@@ -66,173 +195,459 @@ export default function AnalyzerPage() {
   };
 
   // Handle analyze button click
+
+  const mapBackendStatus = (status: string | undefined, progress?: number): AnalysisStage => {
+    const normalized = String(status ?? "").toLowerCase();
+    if (normalized === "queued") return "queued";
+    if (normalized === "running") {
+      if (typeof progress === "number" && progress >= 80) return "finalizing";
+      return "analyzing";
+    }
+    if (normalized === "completed" || normalized === "done") return "complete";
+    if (normalized === "failed" || normalized === "error") return "error";
+    return "preparing";
+  };
+
+  const closeJobEvents = () => {
+    if (jobEventsRef.current) {
+      jobEventsRef.current.close();
+      jobEventsRef.current = null;
+    }
+  };
+
+  const handleJobUpdate = async (job: JobResponse) => {
+    backendStatusRef.current = String(job.status ?? "").toLowerCase();
+    const nextStage = mapBackendStatus(job.status, job.progress_percent);
+    setStage(nextStage);
+    setStatusMessage(job.status_message ?? null);
+    if (typeof job.progress_percent === "number") {
+      const nextValue =
+        backendStatusRef.current === "running"
+          ? Math.max(progressPercent, Math.min(job.progress_percent, RUNNING_PROGRESS_CAP))
+          : job.progress_percent;
+      setProgressPercent(nextValue);
+    } else {
+      setProgressPercent(getProgressPercent(nextStage));
+    }
+
+    if (job.status === "completed" || job.status === "done") {
+      closeJobEvents();
+      if (job.analysis_id) {
+        const resultResponse = await apiFetch(`/api/analysis-results/${encodeURIComponent(job.analysis_id)}`, { cache: "no-store" });
+        if (!resultResponse.ok) {
+          throw new Error("Failed to load final analysis result.");
+        }
+        const analysisResult = await resultResponse.json();
+        setResult(analysisResult);
+      } else {
+        setResult(job);
+      }
+      setStage("complete");
+      window.dispatchEvent(new Event("recents:update"));
+      return;
+    }
+
+    if (job.status === "failed" || job.status === "error") {
+      closeJobEvents();
+      throw new Error(job?.error || "Analysis failed.");
+    }
+  };
+
+  const subscribeToJobStatus = (nextJobId: string) =>
+    new Promise<void>((resolve, reject) => {
+      closeJobEvents();
+      const source = new EventSource(`/api/jobs/${encodeURIComponent(nextJobId)}/events`);
+      jobEventsRef.current = source;
+      let settled = false;
+
+      source.addEventListener("status", (event) => {
+        const message = event as MessageEvent<string>;
+        void (async () => {
+          try {
+            const job = JSON.parse(message.data) as JobResponse;
+            await handleJobUpdate(job);
+            const normalized = String(job.status ?? "").toLowerCase();
+            if (normalized === "completed" || normalized === "done") {
+              settled = true;
+              resolve();
+            } else if (normalized === "failed" || normalized === "error") {
+              settled = true;
+              reject(new Error(job.error || "Analysis failed."));
+            }
+          } catch (err) {
+            settled = true;
+            reject(err instanceof Error ? err : new Error("Failed to process job stream."));
+          }
+        })();
+      });
+
+      source.addEventListener("error", () => {
+        if (settled) {
+          closeJobEvents();
+          return;
+        }
+
+        closeJobEvents();
+        void (async () => {
+          try {
+            const statusResponse = await apiFetch(`/api/jobs/${encodeURIComponent(nextJobId)}`, { cache: "no-store" });
+            if (!statusResponse.ok) {
+              throw new Error("Real-time status stream disconnected.");
+            }
+
+            const job: JobResponse = await statusResponse.json();
+            await handleJobUpdate(job);
+            const normalized = String(job.status ?? "").toLowerCase();
+            if (normalized === "completed" || normalized === "done") {
+              settled = true;
+              resolve();
+              return;
+            }
+            if (normalized === "failed" || normalized === "error") {
+              settled = true;
+              reject(new Error(job.error || "Analysis failed."));
+              return;
+            }
+
+            // Non-terminal state: resume real-time stream without failing the UI.
+            await subscribeToJobStatus(nextJobId);
+            settled = true;
+            resolve();
+          } catch (err) {
+            settled = true;
+            reject(err instanceof Error ? err : new Error("Real-time status stream disconnected."));
+          }
+        })();
+      });
+    });
+
   const handleAnalyze = async (e: FormEvent) => {
     e.preventDefault();
+    closeJobEvents();
     setLoading(true);
     setResult(null);
+    setError(null);
+    setStage("preparing");
+    setJobId(null);
+    setStatusMessage(null);
+    setProgressPercent(0);
+    backendStatusRef.current = "";
+
     try {
-      const formData = new FormData();
-      let endpoint = "http://localhost:8000/predict/";
+      let uploadId = "";
+
       if (file) {
-        formData.append("file", file);
+        const formData = new FormData();
+        formData.append("files", file);
+        const uploadResponse = await apiFetch("/api/uploads", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("Upload failed.");
+        }
+
+        const uploads = await uploadResponse.json();
+        uploadId = uploads?.[0]?.id;
       } else if (input.trim()) {
-        formData.append("input", input.trim());
+        const trimmedInput = input.trim();
+        const inputResponse = await apiFetch("/api/inputs", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            kind: /^https?:\/\//i.test(trimmedInput) ? "link" : "text",
+            content: trimmedInput,
+          }),
+        });
+
+        if (!inputResponse.ok) {
+          throw new Error("Input submission failed.");
+        }
+
+        const upload = await inputResponse.json();
+        uploadId = upload?.id;
       } else {
         setLoading(false);
+        setStage("idle");
         return;
       }
-      const res = await fetch(endpoint, {
+
+      if (!uploadId) {
+        throw new Error("Upload ID missing.");
+      }
+
+      setStage("queued");
+      const asyncResponse = await apiFetch(`/api/analyze/${uploadId}/async`, {
         method: "POST",
-        body: formData,
       });
+
+      if (asyncResponse.ok) {
+        const payload: JobResponse = await asyncResponse.json();
+        const newJobId = payload?.job_id || payload?.id || payload?.jobId || null;
+        if (!newJobId) {
+          throw new Error("Missing async job id.");
+        }
+
+        setJobId(newJobId);
+        setStatusMessage(payload.status_message ?? null);
+        setProgressPercent(typeof payload.progress_percent === "number" ? payload.progress_percent : getProgressPercent(mapBackendStatus(payload.status, payload.progress_percent)));
+        setStage(mapBackendStatus(payload.status, payload.progress_percent));
+
+        await subscribeToJobStatus(newJobId);
+        return;
+      }
+
+      setStage("analyzing");
+      const res = await apiFetch(`/api/analyze/${uploadId}`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        throw new Error("Analysis failed.");
+      }
+
       const data = await res.json();
       setResult(data);
+      setStage("complete");
+      setProgressPercent(100);
+      window.dispatchEvent(new Event("recents:update"));
     } catch (err) {
-      setResult({ error: "Failed to analyze input." });
+      setStage("error");
+      setError(err instanceof Error ? err.message : "Failed to analyze input.");
     } finally {
       setLoading(false);
     }
   };
 
+  const dashboard = normalizeDashboardResult(result);
+  const visualStage: AnalysisStage = stage === "analyzing" && progressPercent >= 80 ? "finalizing" : stage;
+  const computedStatusMessage = stage === "error"
+    ? (statusMessage || "Analysis failed.")
+    : stage === "complete"
+    ? "Analysis completed successfully."
+    : getMilestoneStatus(progressPercent);
+
+  useEffect(() => {
+    if (!jobId) return;
+    if (stage === "complete" || stage === "error") return;
+    if (backendStatusRef.current !== "running") return;
+
+    const timer = setInterval(() => {
+      setProgressPercent((current) => {
+        if (current >= RUNNING_PROGRESS_CAP) return current;
+        const increment = current < 35 ? 3 : current < 70 ? 2 : 1;
+        return Math.min(current + increment, RUNNING_PROGRESS_CAP);
+      });
+    }, 1200);
+
+    return () => clearInterval(timer);
+  }, [jobId, stage]);
+
+  useEffect(() => {
+    return () => {
+      closeJobEvents();
+    };
+  }, []);
+
   return (
-    <SidebarProvider
-      defaultOpen
-      style={
-        {
-          "--sidebar-width": "17.5rem",
-          "--sidebar-width-icon": "3.5rem",
-        } as CSSProperties
-      }
-    >
-      <AnalyzerSessionProvider>
-        <main className="relative min-h-screen w-full overflow-hidden bg-[#050814] text-slate-100">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(16,185,129,0.12),transparent_24%),linear-gradient(180deg,rgba(255,255,255,0.03),transparent_28%)]" />
-          <div className="flex min-h-screen w-full">
-            <AnalyzerSidebar />
-
-            <SidebarInset className="bg-transparent">
-              <AnalyzerHeader />
-
-              <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
-                <div className="flex w-full flex-col gap-6">
-                  <section className="rounded-[1.75rem] border border-white/10 bg-white/4 p-5 shadow-[0_30px_90px_rgba(2,6,23,0.55)] backdrop-blur-xl sm:p-6 lg:p-8">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                      <div className="max-w-2xl">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-cyan-100">
-                          <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-                          Live analyzer
-                        </div>
-
-                        <h1 className="mt-4 text-3xl font-bold tracking-tight text-white sm:text-4xl lg:text-5xl">
-                          Deepfake Analyzer
-                        </h1>
-
-                        <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
-                          Scan suspicious media with a sharper review flow, stronger signal hierarchy, and a dashboard feel that
-                          matches the rest of the product.
-                        </p>
-                      </div>
-
-                    </div>
-                  </section>
-
-                  <form onSubmit={handleAnalyze}>
-                    <section className="rounded-[1.75rem] border border-white/10 bg-[#08101f]/90 p-5 shadow-[0_30px_80px_rgba(2,6,23,0.45)] sm:p-6 lg:p-8">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
-                          <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
-                        </div>
-                        <div className="hidden rounded-full border border-white/10 bg-white/3 px-3 py-1 text-xs text-slate-300 sm:block">
-                          Supports video, audio, and text
-                        </div>
-                      </div>
-
-                      <div
-                        className="mt-6 rounded-[1.5rem] border border-dashed border-cyan-300/30 bg-[linear-gradient(180deg,rgba(8,15,31,0.96),rgba(6,10,20,0.98))] p-6 sm:p-8"
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-100 shadow-[0_18px_50px_rgba(34,211,238,0.15)]">
-                          <CloudUpload className="h-8 w-8" />
-                        </div>
-                        <div className="mt-4 text-center">
-                          <p className="text-lg font-semibold text-white sm:text-xl">Drop files here or click to upload</p>
-                          <p className="mt-2 text-sm text-slate-400">Recommended for clips under 5 minutes and files up to 100MB.</p>
-                        </div>
-
-                        <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="video/*,audio/*,text/*"
-                            className="hidden"
-                            onChange={handleFileChange}
-                            disabled={!!input}
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSelectFiles}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20 disabled:opacity-60"
-                            disabled={!!input}
-                          >
-                            Select files
-                            <ArrowRight className="h-4 w-4" />
-                          </button>
-                          {file && (
-                            <span className="text-xs text-cyan-200 ml-2">{file.name}</span>
-                          )}
-                        </div>
-                        <div className="my-6 flex items-center gap-4">
-                          <div className="h-px flex-1 bg-white/10" />
-                          <span className="text-xs uppercase tracking-widest text-slate-400">or</span>
-                          <div className="h-px flex-1 bg-white/10" />
-                        </div>
-
-                        {/* URL / Text Input */}
-                        <div className="flex flex-col gap-3">
-                          <input
-                            type="text"
-                            value={input}
-                            onChange={handleInputChange}
-                            onFocus={handleInputFocus}
-                            placeholder="Paste a URL or enter text..."
-                            className="w-full rounded-xl border border-white/10 bg-[#050814]/80 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none focus:border-cyan-400 focus:ring-1 focus:ring-cyan-400 transition"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        type="submit"
-                        className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl border border-cyan-300/30 bg-linear-to-r from-cyan-400/10 via-white/5 to-sky-400/10 px-6 py-3 text-sm font-semibold text-cyan-100 backdrop-blur-lg transition-all duration-300 hover:scale-105 hover:border-cyan-300 hover:bg-cyan-400/20 hover:shadow-[0_0_25px_rgba(34,211,238,0.25)] disabled:opacity-60"
-                        disabled={loading || (!file && !input.trim())}
-                      >
-                        {loading ? (
-                          <span>Analyzing...</span>
-                        ) : (
-                          <>
-                            Analyze
-                            <Sparkles className="h-4 w-4" />
-                          </>
-                        )}
-                      </button>
-                      {result && (
-                        <div className="mt-6 rounded-lg bg-[#0a1628] border border-cyan-300/20 p-4 text-cyan-100 text-sm wrap-break-word">
-                          <pre className="whitespace-pre-wrap">{JSON.stringify(result, null, 2)}</pre>
-                        </div>
-                      )}
-                    </section>
-                  </form>
-
-                  <div className="rounded-[1.75rem] border border-white/10 bg-white/3 px-5 py-4 text-sm text-slate-400 sm:px-6">
-                    Recommended Video duration should be less than 5 minutes. Maximum file size: 100MB.
-                  </div>
+    <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
+      <div className="flex w-full flex-col gap-6">
+        {/* Main Card: Input, Progress, or Result */}
+        {!result && (
+        <section className="rounded-[1.75rem] border border-(--app-shell-card-border) bg-[rgba(10,20,42,0.62)] p-5 shadow-[0_18px_44px_rgba(2,8,23,0.24)] backdrop-blur-xl sm:p-6 lg:p-8">
+          {/* Show input if idle and no result */}
+          {stage === "idle" && !result && (
+            <form onSubmit={handleAnalyze}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
+                  <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
+                </div>
+                <div
+                  className="hidden rounded-full border border-sky-300/16 px-3 py-1 text-xs text-slate-200 sm:block"
+                  style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
+                >
+                  Supports video, audio, and text
                 </div>
               </div>
-            </SidebarInset>
+              <div
+                className="mt-6 rounded-[1.5rem] border border-dashed border-cyan-300/20 bg-[linear-gradient(180deg,rgba(11,22,46,0.38),rgba(8,17,36,0.28))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm sm:p-8"
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onClick={() => {
+                  if (file || input.trim()) return;
+                  handleSelectFiles();
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label="Upload a file"
+                style={{ cursor: "pointer" }}
+              >
+                <div
+                  className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-sky-300/18 text-cyan-100 shadow-[0_14px_32px_rgba(47,111,203,0.14)]"
+                  style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
+                >
+                  <CloudUpload className="h-8 w-8" />
+                </div>
+                <div className="mt-4 text-center">
+                  <p className="text-lg font-semibold text-white sm:text-xl">Drop files here or click to upload</p>
+                  <p className="mt-2 text-sm text-slate-400">Recommended for clips under 5 minutes and files up to 100MB.</p>
+                </div>
+                <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="video/*,audio/*,text/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={!!input}
+                  />
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleSelectFiles();
+                    }}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-300/16 px-5 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:brightness-110 disabled:opacity-60"
+                    style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
+                    disabled={!!input}
+                  >
+                    Select files
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                  {file ? (
+                    <div
+                      className="flex flex-wrap items-center justify-center gap-2"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                        {file.name}
+                      </span>
+                      <button
+                        type="button"
+                        className="text-xs text-slate-300 underline underline-offset-2 hover:text-white"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setFile(null);
+                        }}
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <div className="my-6 flex items-center gap-4">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-xs uppercase tracking-widest text-slate-400">or</span>
+                  <div className="h-px flex-1 bg-white/10" />
+                </div>
+                {/* URL / Text Input */}
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={handleInputChange}
+                    onFocus={handleInputFocus}
+                    onClick={(event) => event.stopPropagation()}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    placeholder="Paste a URL or enter text..."
+                    className="w-full rounded-xl border border-cyan-300/35 bg-[rgba(4,10,24,0.46)] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-300/50"
+                  />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl border border-sky-300/18 px-6 py-3 text-sm font-semibold text-white backdrop-blur-lg transition-all duration-300 hover:scale-105 hover:brightness-110 hover:shadow-[0_0_22px_rgba(47,111,203,0.22)] disabled:opacity-60"
+                style={{ backgroundImage: "var(--app-shell-highlight-gradient)" }}
+                disabled={loading || (!file && !input.trim())}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    Analyze
+                    <Sparkles className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+              {error ? (
+                <div className="mt-6 rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-sm text-rose-100">
+                  {error}
+                </div>
+              ) : null}
+            </form>
+          )}
+
+          {/* Simple loader while processing */}
+          {stage !== "idle" && !result && (
+            <div className="flex min-h-75 flex-col items-center justify-center rounded-2xl border border-(--app-shell-border) bg-(--app-shell-panel) px-6 py-10 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-cyan-200" />
+              <h2 className="mt-4 text-xl font-semibold text-white">
+                {stage === "error" ? "Analysis Failed" : "Processing..."}
+              </h2>
+              <p className="mt-2 text-sm text-slate-300">
+                {stage === "error"
+                  ? (statusMessage || "Something went wrong during analysis.")
+                  : (statusMessage || "Please wait while we process your input.")}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">{file?.name || "Your media"}</p>
+              <button
+                onClick={() => {
+                  setStage("idle");
+                  setResult(null);
+                  setJobId(null);
+                  setProgressPercent(0);
+                  setStatusMessage(null);
+                  backendStatusRef.current = "";
+                  closeJobEvents();
+                }}
+                className="mt-6 rounded-lg border border-(--app-shell-border) bg-(--app-shell-panel) px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-(--app-shell-panel-2)"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+
+        </section>
+        )}
+
+        {result && (
+          <div>
+            <div className="mb-4 flex justify-end">
+              <button
+                onClick={() => {
+                  setStage("idle");
+                  setResult(null);
+                  setJobId(null);
+                  setProgressPercent(0);
+                  setStatusMessage(null);
+                  backendStatusRef.current = "";
+                  closeJobEvents();
+                }}
+                className="rounded-lg border border-(--app-shell-border) bg-(--app-shell-panel) px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-(--app-shell-panel-2)"
+              >
+                Reset
+              </button>
+            </div>
+            <AnalyzerResultDashboard
+              result={dashboard.result}
+              summary={dashboard.summary}
+              timing={dashboard.timing}
+            />
           </div>
-        </main>
-      </AnalyzerSessionProvider>
-    </SidebarProvider>
+        )}
+
+        <div className="rounded-[1.75rem] border border-(--app-shell-card-border) bg-(--app-shell-panel) px-5 py-4 text-sm text-slate-400 shadow-(--app-shell-shadow) sm:px-6">
+          Recommended Video duration should be less than 5 minutes. Maximum file size: 100MB.
+        </div>
+      </div>
+    </div>
   );
 }
+

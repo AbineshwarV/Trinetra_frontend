@@ -1,35 +1,26 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { formatValidPhoneNumber } from "../../lib/phone";
-import {
-  Building2,
-  ChevronDown,
-  Eye,
-  EyeOff,
-  Globe2,
-  Lock,
-  Mail,
-  MapPin,
-  PhoneCall,
-  ShieldCheck,
-  User,
-} from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, Building2, ChevronDown, Eye, EyeOff, Lock, Mail, MapPin, PhoneCall, ShieldCheck, User } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { COUNTRY_DIAL_CODES, formatGatewayPhoneNumber } from "../../lib/phone";
+import { apiFetch } from "@/lib/api";
 
 const MIN_PASSWORD_LENGTH = 8;
 const SUCCESS_MESSAGE_VISIBLE_MS = 15000;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const NAME_REGEX = /^[A-Za-z\s]+$/;
+const AUTH_ART_URL = "/signup_art.png";
 
 interface FormData {
   email: string;
   name: string;
   company: string;
+  address: string;
   countryCode: string;
   mobile: string;
   password: string;
-  address: string;
   agreeToTerms: boolean;
 }
 
@@ -37,89 +28,40 @@ interface FormErrors {
   email?: string;
   name?: string;
   company?: string;
+  address?: string;
   countryCode?: string;
   mobile?: string;
   password?: string;
-  address?: string;
   agreeToTerms?: string;
 }
 
-const COUNTRY_CODES = [
-  { value: "+91", code: "+91", label: "India (+91)" },
-  { value: "+1", code: "+1", label: "United States / Canada (+1)" },
-  { value: "+20", code: "+20", label: "Egypt (+20)" },
-  { value: "+27", code: "+27", label: "South Africa (+27)" },
-  { value: "+30", code: "+30", label: "Greece (+30)" },
-  { value: "+31", code: "+31", label: "Netherlands (+31)" },
-  { value: "+32", code: "+32", label: "Belgium (+32)" },
-  { value: "+33", code: "+33", label: "France (+33)" },
-  { value: "+34", code: "+34", label: "Spain (+34)" },
-  { value: "+36", code: "+36", label: "Hungary (+36)" },
-  { value: "+39", code: "+39", label: "Italy (+39)" },
-  { value: "+41", code: "+41", label: "Switzerland (+41)" },
-  { value: "+43", code: "+43", label: "Austria (+43)" },
-  { value: "+44", code: "+44", label: "United Kingdom (+44)" },
-  { value: "+45", code: "+45", label: "Denmark (+45)" },
-  { value: "+46", code: "+46", label: "Sweden (+46)" },
-  { value: "+47", code: "+47", label: "Norway (+47)" },
-  { value: "+48", code: "+48", label: "Poland (+48)" },
-  { value: "+49", code: "+49", label: "Germany (+49)" },
-  { value: "+52", code: "+52", label: "Mexico (+52)" },
-  { value: "+54", code: "+54", label: "Argentina (+54)" },
-  { value: "+55", code: "+55", label: "Brazil (+55)" },
-  { value: "+61", code: "+61", label: "Australia (+61)" },
-  { value: "+62", code: "+62", label: "Indonesia (+62)" },
-  { value: "+63", code: "+63", label: "Philippines (+63)" },
-  { value: "+64", code: "+64", label: "New Zealand (+64)" },
-  { value: "+65", code: "+65", label: "Singapore (+65)" },
-  { value: "+66", code: "+66", label: "Thailand (+66)" },
-  { value: "+81", code: "+81", label: "Japan (+81)" },
-  { value: "+82", code: "+82", label: "South Korea (+82)" },
-  { value: "+84", code: "+84", label: "Vietnam (+84)" },
-  { value: "+86", code: "+86", label: "China (+86)" },
-  { value: "+90", code: "+90", label: "Turkey (+90)" },
-  { value: "+92", code: "+92", label: "Pakistan (+92)" },
-  { value: "+93", code: "+93", label: "Afghanistan (+93)" },
-  { value: "+94", code: "+94", label: "Sri Lanka (+94)" },
-  { value: "+95", code: "+95", label: "Myanmar (+95)" },
-  { value: "+961", code: "+961", label: "Lebanon (+961)" },
-  { value: "+971", code: "+971", label: "United Arab Emirates (+971)" },
-  { value: "+966", code: "+966", label: "Saudi Arabia (+966)" },
-  { value: "+972", code: "+972", label: "Israel (+972)" },
-];
-
 export default function SignupPage() {
+  const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverMessage, setServerMessage] = useState<string | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
-  const [isCountryCodeOpen, setIsCountryCodeOpen] = useState(false);
-  const [highlightedCountryIndex, setHighlightedCountryIndex] = useState(0);
-  const countryCodeRef = useRef<HTMLDivElement | null>(null);
-  const countryOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [isCodeOpen, setIsCodeOpen] = useState(false);
+  const [activeDialIndex, setActiveDialIndex] = useState(0);
+  const codeDropdownRef = useRef<HTMLDivElement | null>(null);
+  const codePopoverRef = useRef<HTMLDivElement | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     email: "",
     name: "",
     company: "",
+    address: "",
     countryCode: "+91",
     mobile: "",
     password: "",
-    address: "",
     agreeToTerms: false,
   });
 
   useEffect(() => {
     if (!serverMessage) return;
-
-    const timeoutId = window.setTimeout(() => {
-      setServerMessage(null);
-    }, SUCCESS_MESSAGE_VISIBLE_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    const timeoutId = window.setTimeout(() => setServerMessage(null), SUCCESS_MESSAGE_VISIBLE_MS);
+    return () => window.clearTimeout(timeoutId);
   }, [serverMessage]);
 
   const validateForm = (values: FormData) => {
@@ -127,30 +69,38 @@ export default function SignupPage() {
     const email = values.email.trim().toLowerCase();
     const name = values.name.trim();
     const company = values.company.trim();
-    const countryCode = values.countryCode.trim();
+    const address = values.address.trim();
     const mobile = values.mobile.trim();
     const password = values.password;
-    const address = values.address.trim();
 
     if (!name) {
       nextErrors.name = "Name is required.";
-    } else if (!NAME_REGEX.test(name)) {
-      nextErrors.name = "Name must contain only alphabets.";
     }
 
     if (!email) {
       nextErrors.email = "Email is required.";
     } else if (!EMAIL_REGEX.test(email)) {
-      nextErrors.email = "Please enter a valid email address.";
+      nextErrors.email = "Invalid email address.";
+    }
+
+    if (!company) {
+      nextErrors.company = "Company is required.";
+    }
+
+    if (!address) {
+      nextErrors.address = "Address is required.";
+    }
+
+    if (!values.countryCode) {
+      nextErrors.countryCode = "Code is required.";
     }
 
     if (!mobile) {
-      nextErrors.mobile = "Mobile number is required.";
-    } else if (!formatValidPhoneNumber(countryCode, mobile)) {
-      nextErrors.mobile = "Please enter a valid phone number.";
+      nextErrors.mobile = "Phone is required.";
+    } else {
+      const normalized = formatGatewayPhoneNumber(values.countryCode, mobile);
+      if (normalized === null) nextErrors.mobile = "Invalid mobile number.";
     }
-    if (!company) nextErrors.company = "Company is required.";
-    if (!countryCode) nextErrors.countryCode = "Country code is required.";
 
     if (!password) {
       nextErrors.password = "Password is required.";
@@ -158,46 +108,107 @@ export default function SignupPage() {
       nextErrors.password = `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
     }
 
-    if (!address) nextErrors.address = "Address is required.";
-
     if (!values.agreeToTerms) {
-      nextErrors.agreeToTerms = "You must accept the Terms and Privacy Policy.";
+      nextErrors.agreeToTerms = "Please accept the terms and conditions.";
     }
 
     return nextErrors;
   };
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
+  const errorIcon = (fieldError: string | undefined) => {
+    if (!fieldError) return null;
+    const isRequired = /required/i.test(fieldError);
+    return (
+      <span
+        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-slate-900/60 p-1 text-red-300"
+        title={isRequired ? "Required" : "Invalid"}
+        aria-hidden="true"
+      >
+        <AlertTriangle className="h-4 w-4" />
+      </span>
+    );
+  };
+
+  const dialCodeOptions = useMemo(() => COUNTRY_DIAL_CODES, []);
+
+  const selectedDialCodeLabel = useMemo(() => {
+    const match = COUNTRY_DIAL_CODES.find((option) => option.dialCode === formData.countryCode);
+    if (!match) return formData.countryCode || "Select code";
+    return match.dialCode;
+  }, [formData.countryCode]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (!isCodeOpen) return;
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (codeDropdownRef.current?.contains(target)) return;
+      setIsCodeOpen(false);
+    };
+
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, [isCodeOpen]);
+
+  useEffect(() => {
+    if (!isCodeOpen) return;
+    const id = window.setTimeout(() => codePopoverRef.current?.focus(), 0);
+    return () => window.clearTimeout(id);
+  }, [isCodeOpen]);
+
+  useEffect(() => {
+    if (!isCodeOpen) return;
+    const selectedIndex = dialCodeOptions.findIndex((option) => option.dialCode === formData.countryCode);
+    setActiveDialIndex(selectedIndex >= 0 ? selectedIndex : 0);
+  }, [dialCodeOptions, formData.countryCode, isCodeOpen]);
+
+  useEffect(() => {
+    if (!isCodeOpen) return;
+    const option = dialCodeOptions[activeDialIndex];
+    if (!option) return;
+    const id = `dial-opt-${option.iso2}-${option.dialCode.replace("+", "")}`;
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeDialIndex, dialCodeOptions, isCodeOpen]);
+
+  const moveDialIndex = (delta: number) => {
+    if (!dialCodeOptions.length) return;
+    setActiveDialIndex((prev) => {
+      const next = (prev + delta + dialCodeOptions.length) % dialCodeOptions.length;
+      return next;
+    });
+  };
+
+  const selectActiveDialCode = () => {
+    const option = dialCodeOptions[activeDialIndex];
+    if (!option) return;
+    setFormData((prev) => ({ ...prev, countryCode: option.dialCode }));
+    setFieldErrors((prev) => {
+      if (!("countryCode" in prev)) return prev;
+      const next = { ...prev };
+      delete next.countryCode;
+      return next;
+    });
+    setIsCodeOpen(false);
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const fieldName = name as keyof FormErrors;
 
     if (type === "checkbox") {
       const checked = (e.target as HTMLInputElement).checked;
       setFormData((prev) => ({ ...prev, [name]: checked }));
     } else {
       let nextValue = value;
-
-      if (name === "name") {
-        nextValue = value.replace(/[^A-Za-z\s]/g, "");
-      }
-
-      if (name === "mobile") {
-        nextValue = value.replace(/\D/g, "");
-      }
-
+      if (name === "mobile") nextValue = value.replace(/\D/g, "");
       setFormData((prev) => ({ ...prev, [name]: nextValue }));
     }
 
     setFieldErrors((prev) => {
-      if (!(fieldName in prev)) {
-        return prev;
-      }
-
-      const nextErrors = { ...prev };
-      delete nextErrors[fieldName];
-      return nextErrors;
+      if (!(name in prev)) return prev;
+      const next = { ...prev };
+      delete next[name as keyof FormErrors];
+      return next;
     });
   };
 
@@ -206,8 +217,8 @@ export default function SignupPage() {
 
     setServerMessage(null);
     setServerError(null);
-    const validationErrors = validateForm(formData);
 
+    const validationErrors = validateForm(formData);
     if (Object.keys(validationErrors).length > 0) {
       setFieldErrors(validationErrors);
       return;
@@ -217,30 +228,38 @@ export default function SignupPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/signup", {
+      const response = await apiFetch("/api/signup", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email.trim().toLowerCase(),
+          name: formData.name,
+          company: formData.company,
+          address: formData.address,
+          password: formData.password,
+          countryCode: formData.countryCode,
+          mobile: formData.mobile,
+          agreeToTerms: formData.agreeToTerms,
+        }),
       });
 
-      const result = (await response.json()) as { message?: string };
+      const result = (await response.json()) as { message?: string; detail?: { message?: string } };
+      const responseMessage = result.message ?? result.detail?.message;
 
       if (!response.ok) {
-        setServerError(result.message || "Registration failed. Please try again.");
+        setServerError(responseMessage || "Registration failed. Please try again.");
         return;
       }
 
-      setServerMessage(result.message || "Registration successful.");
+      setServerMessage(responseMessage || "Registration successful.");
       setFormData({
         email: "",
         name: "",
         company: "",
+        address: "",
         countryCode: "+91",
         mobile: "",
         password: "",
-        address: "",
         agreeToTerms: false,
       });
     } catch {
@@ -250,467 +269,439 @@ export default function SignupPage() {
     }
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!countryCodeRef.current) return;
-      if (!countryCodeRef.current.contains(event.target as Node)) {
-        setIsCountryCodeOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const handleCountryCodeSelect = (value: string) => {
-    setFormData((prev) => ({ ...prev, countryCode: value }));
-    setIsCountryCodeOpen(false);
-
-    setFieldErrors((prev) => {
-      if (!prev.countryCode) {
-        return prev;
-      }
-
-      const nextErrors = { ...prev };
-      delete nextErrors.countryCode;
-      return nextErrors;
-    });
-  };
-
-  const selectedCountry =
-    COUNTRY_CODES.find((country) => country.value === formData.countryCode) ?? COUNTRY_CODES[0];
-
-  const selectedCountryIndex = COUNTRY_CODES.findIndex(
-    (country) => country.value === formData.countryCode
-  );
-
-  const openCountryCodeList = () => {
-    setHighlightedCountryIndex(selectedCountryIndex >= 0 ? selectedCountryIndex : 0);
-    setIsCountryCodeOpen(true);
-  };
-
-  useEffect(() => {
-    if (!isCountryCodeOpen) return;
-    countryOptionRefs.current[highlightedCountryIndex]?.scrollIntoView({ block: "nearest" });
-  }, [highlightedCountryIndex, isCountryCodeOpen]);
-
-  const handleCountryCodeKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
-    const lastIndex = COUNTRY_CODES.length - 1;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (!isCountryCodeOpen) {
-        openCountryCodeList();
-        return;
-      }
-      setHighlightedCountryIndex((prev) => (prev >= lastIndex ? lastIndex : prev + 1));
-      return;
-    }
-
-    if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (!isCountryCodeOpen) {
-        openCountryCodeList();
-        return;
-      }
-      setHighlightedCountryIndex((prev) => (prev <= 0 ? 0 : prev - 1));
-      return;
-    }
-
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (!isCountryCodeOpen) {
-        openCountryCodeList();
-        return;
-      }
-      const highlightedCountry = COUNTRY_CODES[highlightedCountryIndex];
-      if (highlightedCountry) {
-        handleCountryCodeSelect(highlightedCountry.value);
-      }
-      return;
-    }
-
-    if (e.key === "Escape") {
-      setIsCountryCodeOpen(false);
-    }
-  };
-
   return (
-    <main className="signup-page min-h-screen bg-[#050814] text-slate-100">
-      <div className="flex min-h-screen flex-col items-center justify-center px-4 py-5">
-        <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#08101f]/90 p-6 shadow-[0_30px_80px_rgba(2,6,23,0.45)] backdrop-blur-xl">
-          <div className="mb-5 flex flex-col items-center">
-            <Link href="/" className="mb-3 inline-flex items-center gap-2">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 bg-cyan-400/15 text-3xl leading-none text-cyan-100 shadow-[0_10px_30px_rgba(34,211,238,0.22)]">
-                👁
-              </span>
-              <span className="text-lg font-semibold tracking-wide">TRINETRA</span>
-            </Link>
-            <h1 className="text-xl font-bold">Create an account</h1>
-            <p className="mt-1 text-sm text-white/70">
-              Already have an account?{" "}
-              <Link href="/login" className="text-cyan-300 transition hover:text-cyan-200">
-                Log In
-              </Link>
-            </p>
-          </div>
+    <main className="auth-page relative isolate min-h-screen overflow-hidden bg-[#030b1e] text-slate-100">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,210,48,0.15),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(29,107,255,0.18),transparent_35%),linear-gradient(180deg,#020817_0%,#030b1e_100%)]" />
+      <div className="absolute -left-32 top-20 h-96 w-96 rounded-full bg-[#ffd230]/10 blur-3xl" />
+      <div className="absolute right-0 top-40 h-112 w-md rounded-full bg-[#1d6bff]/10 blur-3xl" />
 
-          <form onSubmit={handleSubmit} className="space-y-3" autoComplete="off" noValidate>
-            {serverMessage ? (
-              <div className="relative overflow-hidden rounded-md border border-emerald-400/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
-                <div className="flex items-center gap-2">
+      <div className="relative grid min-h-screen grid-cols-1 lg:grid-cols-[0.9fr_1.1fr]">
+        <section className="hidden bg-transparent px-6 py-10 sm:px-10 lg:block lg:pr-2">
+          <div className="relative h-full overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-[0_30px_70px_-50px_rgba(15,23,42,0.65)]">
+            <Image
+              src={AUTH_ART_URL}
+              alt="Trinetra auth artwork"
+              fill
+              priority
+              className="object-cover"
+              sizes="(min-width: 1024px) 50vw, 0px"
+            />
+          </div>
+        </section>
+
+        <section className="flex items-center justify-center bg-transparent px-6 py-10 sm:px-10 lg:pl-2">
+          <div className="w-full max-w-xl">
+            <div className="mb-6 flex items-center justify-center lg:hidden">
+              <span className="bg-linear-to-r from-fuchsia-400 via-indigo-300 to-sky-300 bg-clip-text text-lg font-semibold tracking-wide text-transparent">
+                TRINETRA
+              </span>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_60px_-45px_rgba(0,0,0,0.75)] lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-slate-200/90 transition hover:bg-white/10 hover:text-white"
+            >
+              <span aria-hidden="true">←</span>
+              Back
+            </button>
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold tracking-tight">Create your account</h1>
+              <p className="mt-1 text-sm text-slate-300/80">Sign up to start analyzing.</p>
+            </div>
+
+            <div className="mb-6 rounded-full border border-white/10 bg-white/5 p-1">
+              <div className="grid grid-cols-2">
+                <Link
+                  href="/login"
+                  className="rounded-full px-4 py-2 text-center text-sm font-semibold text-slate-200/80 transition hover:text-white"
+                >
+                  Log In
+                </Link>
+                <Link
+                  href="/signup"
+                  aria-current="page"
+                  className="rounded-full bg-linear-to-r from-[#ffd230] to-[#ffb703] px-4 py-2 text-center text-sm font-semibold text-[#071127] shadow-sm transition hover:scale-[1.02]"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-4"
+              autoComplete="off"
+              noValidate
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setIsCodeOpen(false);
+              }}
+            >
+              {serverMessage ? (
+                <div className="flex items-center gap-2 rounded-md border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
                   <ShieldCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-emerald-300" />
                   <span>{serverMessage}</span>
                 </div>
-                <span
-                  aria-hidden="true"
-                  className="signup-success-timer absolute bottom-0 left-0 h-0.5 w-full origin-left bg-emerald-300/80"
-                />
-              </div>
-            ) : null}
-
-            {serverError ? (
-              <p className="rounded-md border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                {serverError}
-              </p>
-            ) : null}
-
-            <div>
-              <label htmlFor="name" className="text-xs text-white/80">
-                Name
-              </label>
-              <div className="relative mt-1">
-                <User
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                />
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  autoComplete="off"
-                  inputMode="text"
-                  pattern="[A-Za-z\\s]+"
-                  placeholder="Full Name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  aria-invalid={Boolean(fieldErrors.name)}
-                  aria-describedby={fieldErrors.name ? "name-error" : undefined}
-                  className={`w-full rounded-lg border bg-white/4 py-2 pr-3 pl-8 text-sm text-white placeholder-white/50 transition focus:outline-none focus:ring-1 ${
-                    fieldErrors.name
-                      ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                      : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                  }`}
-                />
-              </div>
-              {fieldErrors.name ? (
-                <p id="name-error" className="mt-1 text-xs text-red-300">
-                  {fieldErrors.name}
-                </p>
               ) : null}
-            </div>
 
-            <div>
-              <label htmlFor="email" className="text-xs text-white/80">
-                Email ID (Username)
-              </label>
-              <div className="relative mt-1">
-                <Mail
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  placeholder="Email ID"
-                  value={formData.email}
-                  onChange={handleChange}
-                  aria-invalid={Boolean(fieldErrors.email)}
-                  aria-describedby={fieldErrors.email ? "email-error" : undefined}
-                  className={`w-full rounded-lg border bg-white/4 py-2 pr-3 pl-8 text-sm text-white placeholder-white/50 transition focus:outline-none focus:ring-1 ${
-                    fieldErrors.email
-                      ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                      : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                  }`}
-                />
-              </div>
-              {fieldErrors.email ? (
-                <p id="email-error" className="mt-1 text-xs text-red-300">
-                  {fieldErrors.email}
-                </p>
+              {serverError ? (
+                <p className="rounded-md border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs text-red-200">{serverError}</p>
               ) : null}
-            </div>
 
-            <div>
-              <label htmlFor="mobile" className="text-xs text-white/80">
-                Phone Number
-              </label>
-              <div className="mt-1 grid grid-cols-[140px_minmax(0,1fr)] gap-2">
-                <div ref={countryCodeRef} className="relative">
-                  <Globe2
+              <div>
+                <label htmlFor="name" className="text-xs font-medium text-slate-200">
+                  Name
+                </label>
+                <div className="relative mt-1">
+                  <User
                     aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                   />
-                  <button
-                    type="button"
-                    id="countryCode"
-                    aria-describedby={fieldErrors.countryCode ? "country-code-error" : undefined}
-                    aria-haspopup="listbox"
-                    aria-expanded={isCountryCodeOpen}
-                    onClick={() => {
-                      if (isCountryCodeOpen) {
-                        setIsCountryCodeOpen(false);
-                        return;
-                      }
-
-                      openCountryCodeList();
-                    }}
-                    onKeyDown={handleCountryCodeKeyDown}
-                    className={`w-full rounded-lg border bg-white/4 py-2 pr-10 pl-8 text-left text-sm font-medium text-white transition focus:outline-none focus:ring-1 ${
-                      fieldErrors.countryCode
-                        ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                        : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                    }`}
-                  >
-                    {selectedCountry.code}
-                  </button>
-                  <ChevronDown
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/55 transition-transform ${
-                      isCountryCodeOpen ? "rotate-180" : ""
+                  <input
+                    id="name"
+                    name="name"
+                    type="text"
+                    autoComplete="off"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder={fieldErrors.name ? fieldErrors.name : "Full name"}
+                    required
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    className={`w-full rounded-full border bg-slate-900/70 py-2.5 pr-10 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                      fieldErrors.name
+                        ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                        : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
                     }`}
                   />
+                  {errorIcon(fieldErrors.name)}
+                </div>
+              </div>
 
-                  {isCountryCodeOpen ? (
-                    <div
-                      role="listbox"
-                      aria-labelledby="countryCode"
-                      className="absolute left-0 top-full z-30 mt-2 w-72 overflow-hidden rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(8,16,31,0.96),rgba(6,12,24,0.98))] ring-1 ring-cyan-300/20 backdrop-blur-xl shadow-[0_20px_45px_-22px_rgba(2,6,23,0.95)]"
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="email" className="text-xs font-medium text-slate-200">
+                    Email
+                  </label>
+                  <div className="relative mt-1">
+                    <Mail
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      id="email"
+                      name="email"
+                      type="email"
+                      autoComplete="off"
+                      value={formData.email}
+                      onChange={handleChange}
+                      placeholder={fieldErrors.email ? fieldErrors.email : "Enter your email"}
+                      required
+                      aria-invalid={Boolean(fieldErrors.email)}
+                      className={`w-full rounded-full border bg-slate-900/70 py-2.5 pr-10 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.email
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    />
+                    {errorIcon(fieldErrors.email)}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="password" className="text-xs font-medium text-slate-200">
+                    Password
+                  </label>
+                  <div className="relative mt-1">
+                    <Lock
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      id="password"
+                      name="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="off"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder={fieldErrors.password ? fieldErrors.password : "Create a password"}
+                      required
+                      aria-invalid={Boolean(fieldErrors.password)}
+                      className={`w-full rounded-full border bg-slate-900/70 py-2.5 pr-20 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.password
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-white focus:outline-none"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                     >
-                      <div className="no-scrollbar max-h-60 overflow-y-auto overscroll-contain py-2">
-                        {COUNTRY_CODES.map((country, index) => (
-                          <button
-                            key={country.value}
-                            type="button"
-                            role="option"
-                            aria-selected={formData.countryCode === country.value}
-                            ref={(el) => {
-                              countryOptionRefs.current[index] = el;
-                            }}
-                            onMouseEnter={() => setHighlightedCountryIndex(index)}
-                            onClick={() => handleCountryCodeSelect(country.value)}
-                            className={`mx-2 my-1 flex w-[calc(100%-1rem)] items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm tracking-[0.01em] transition ${
-                              highlightedCountryIndex === index
-                                ? "border-cyan-300/55 bg-cyan-300/8 text-cyan-100"
-                                : "border-transparent text-white/90 hover:border-cyan-300/25 hover:bg-transparent"
-                            }`}
-                          >
-                            <span className="font-medium">{country.label}</span>
-                            <span className="ml-3 text-xs font-semibold text-white/60">{country.code}</span>
-                          </button>
-                        ))}
+                      {showPassword ? (
+                        <EyeOff aria-hidden="true" className="h-4 w-4" />
+                      ) : (
+                        <Eye aria-hidden="true" className="h-4 w-4" />
+                      )}
+                    </button>
+                    {fieldErrors.password ? (
+                      <span
+                        className="pointer-events-none absolute right-12 top-1/2 -translate-y-1/2 text-red-300"
+                        title={fieldErrors.password}
+                        aria-hidden="true"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="mobile" className="text-xs font-medium text-slate-200">
+                  Phone
+                </label>
+                <div className="mt-1 grid grid-cols-[minmax(0,5.75rem)_minmax(0,1fr)] gap-2 sm:grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)]">
+                  <div className="relative" ref={codeDropdownRef}>
+                    <button
+                      id="countryCode"
+                      type="button"
+                      onClick={() => setIsCodeOpen((prev) => !prev)}
+                      aria-haspopup="listbox"
+                      aria-expanded={isCodeOpen}
+                      onKeyDown={(e) => {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setIsCodeOpen(true);
+                          moveDialIndex(1);
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setIsCodeOpen(true);
+                          moveDialIndex(-1);
+                        } else if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setIsCodeOpen((prev) => !prev);
+                        } else if (e.key === "Escape") {
+                          setIsCodeOpen(false);
+                        }
+                      }}
+                      className={`flex h-11 w-full items-center justify-between gap-2 rounded-full border bg-slate-900/70 px-3 text-left text-sm font-semibold text-slate-100 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.countryCode
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{selectedDialCodeLabel}</span>
+                      <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+                    {fieldErrors.countryCode ? (
+                      <span className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 text-red-300" title="Required" aria-hidden="true">
+                        <AlertTriangle className="h-4 w-4" />
+                      </span>
+                    ) : null}
+
+                    {isCodeOpen ? (
+                      <div
+                        ref={codePopoverRef}
+                        tabIndex={-1}
+                        className="absolute left-0 right-0 top-12 z-50 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 shadow-[0_30px_70px_-45px_rgba(0,0,0,0.85)] backdrop-blur"
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            moveDialIndex(1);
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            moveDialIndex(-1);
+                          } else if (e.key === "Enter") {
+                            e.preventDefault();
+                            selectActiveDialCode();
+                          } else if (e.key === " " || e.key === "Spacebar") {
+                            e.preventDefault();
+                            selectActiveDialCode();
+                          } else if (e.key === "Escape") {
+                            setIsCodeOpen(false);
+                          }
+                        }}
+                      >
+                        <ul
+                          role="listbox"
+                          aria-activedescendant={
+                            dialCodeOptions[activeDialIndex]
+                              ? `dial-opt-${dialCodeOptions[activeDialIndex].iso2}-${dialCodeOptions[activeDialIndex].dialCode.replace("+", "")}`
+                              : undefined
+                          }
+                          className="max-h-56 overflow-auto py-1 text-sm [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0"
+                        >
+                          {dialCodeOptions.length ? (
+                            dialCodeOptions.map((option) => {
+                              const isSelected = option.dialCode === formData.countryCode;
+                              const isActive =
+                                dialCodeOptions[activeDialIndex]?.iso2 === option.iso2 &&
+                                dialCodeOptions[activeDialIndex]?.dialCode === option.dialCode;
+                              return (
+                                <li
+                                  key={`${option.iso2}-${option.dialCode}`}
+                                  id={`dial-opt-${option.iso2}-${option.dialCode.replace("+", "")}`}
+                                  role="option"
+                                  aria-selected={isSelected}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData((prev) => ({ ...prev, countryCode: option.dialCode }));
+                                      setFieldErrors((prev) => {
+                                        if (!("countryCode" in prev)) return prev;
+                                        const next = { ...prev };
+                                        delete next.countryCode;
+                                        return next;
+                                      });
+                                      setIsCodeOpen(false);
+                                    }}
+                                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left transition ${
+                                      isActive
+                                        ? "bg-indigo-500/20 text-slate-50"
+                                        : isSelected
+                                          ? "bg-indigo-500/15 text-slate-50"
+                                          : "text-slate-100 hover:bg-white/5"
+                                    }`}
+                                  >
+                                    <span className="min-w-0 flex-1 truncate">{option.iso2}</span>
+                                    <span className="shrink-0 text-slate-300/90">{option.dialCode}</span>
+                                  </button>
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-slate-300/80">No results</li>
+                          )}
+                        </ul>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="relative">
-                  <PhoneCall
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                  />
-                  <input
-                    id="mobile"
-                    name="mobile"
-                    type="tel"
-                    autoComplete="off"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    placeholder="Phone number"
-                    value={formData.mobile}
-                    onChange={handleChange}
-                    aria-invalid={Boolean(fieldErrors.mobile)}
-                    aria-describedby={
-                      fieldErrors.countryCode || fieldErrors.mobile
-                        ? "country-code-error mobile-error"
-                        : undefined
-                    }
-                    className={`w-full rounded-lg border bg-white/4 py-2 pr-3 pl-8 text-sm text-white placeholder-white/45 transition focus:outline-none focus:ring-1 ${
-                      fieldErrors.mobile
-                        ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                        : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                    }`}
-                  />
+                    ) : null}
+                  </div>
+                  <div className="relative">
+                    <PhoneCall
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      id="mobile"
+                      name="mobile"
+                      type="tel"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      placeholder={fieldErrors.mobile ? fieldErrors.mobile : "Phone number"}
+                      value={formData.mobile}
+                      onChange={handleChange}
+                      required
+                      aria-invalid={Boolean(fieldErrors.mobile)}
+                      className={`h-11 w-full rounded-full border bg-slate-900/70 py-2.5 pr-10 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.mobile
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    />
+                    {errorIcon(fieldErrors.mobile)}
+                  </div>
                 </div>
               </div>
-              {fieldErrors.countryCode ? (
-                <p id="country-code-error" className="mt-1 text-xs text-red-300">
-                  {fieldErrors.countryCode}
-                </p>
-              ) : null}
-              {fieldErrors.mobile ? (
-                <p id="mobile-error" className="mt-1 text-xs text-red-300">
-                  {fieldErrors.mobile}
-                </p>
-              ) : null}
-            </div>
 
-            <div>
-              <label htmlFor="password" className="text-xs text-white/80">
-                Password
-              </label>
-              <div className="relative mt-1">
-                <Lock
-                  aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="company" className="text-xs font-medium text-slate-200">
+                    Company
+                  </label>
+                  <div className="relative mt-1">
+                    <Building2
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      id="company"
+                      name="company"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.company}
+                      onChange={handleChange}
+                      placeholder={fieldErrors.company ? fieldErrors.company : "Company name"}
+                      required
+                      aria-invalid={Boolean(fieldErrors.company)}
+                      className={`w-full rounded-full border bg-slate-900/70 py-2.5 pr-10 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.company
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    />
+                    {errorIcon(fieldErrors.company)}
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="address" className="text-xs font-medium text-slate-200">
+                    Address
+                  </label>
+                  <div className="relative mt-1">
+                    <MapPin
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                    />
+                    <input
+                      id="address"
+                      name="address"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.address}
+                      onChange={handleChange}
+                      placeholder={fieldErrors.address ? fieldErrors.address : "Street address"}
+                      required
+                      aria-invalid={Boolean(fieldErrors.address)}
+                      className={`w-full rounded-full border bg-slate-900/70 py-2.5 pr-10 pl-10 text-sm text-slate-100 placeholder-slate-400 shadow-sm transition focus:outline-none focus:ring-2 ${
+                        fieldErrors.address
+                          ? "border-red-400/70 focus:border-red-400 focus:ring-red-400/20"
+                          : "border-white/10 focus:border-indigo-400/60 focus:ring-indigo-400/20"
+                      }`}
+                    />
+                    {errorIcon(fieldErrors.address)}
+                  </div>
+                </div>
+              </div>
+
+              <label className="flex items-start gap-2.5 pt-1 text-xs text-slate-300/90">
                 <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Create Password"
-                  value={formData.password}
+                  id="agreeToTerms"
+                  name="agreeToTerms"
+                  type="checkbox"
+                  checked={formData.agreeToTerms}
                   onChange={handleChange}
-                  aria-invalid={Boolean(fieldErrors.password)}
-                  aria-describedby={fieldErrors.password ? "password-error" : undefined}
-                  className={`w-full rounded-lg border bg-white/4 py-2 pr-10 pl-8 text-sm text-white placeholder-white/50 transition focus:outline-none focus:ring-1 ${
-                    fieldErrors.password
-                      ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                      : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                  }`}
+                  className="mt-0.5 h-4 w-4 rounded border-white/20 bg-slate-900/60 text-indigo-400 focus:ring-indigo-400/20"
+                  aria-invalid={Boolean(fieldErrors.agreeToTerms)}
+                  aria-describedby={fieldErrors.agreeToTerms ? "terms-error" : undefined}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-white/55 transition hover:text-cyan-200 focus:outline-none"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
-                >
-                  {showPassword ? (
-                    <EyeOff aria-hidden="true" className="h-4 w-4" />
-                  ) : (
-                    <Eye aria-hidden="true" className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-              {fieldErrors.password ? (
-                <p id="password-error" className="mt-1 text-xs text-red-300">
-                  {fieldErrors.password}
+                <span>
+                  I accept the{" "}
+                  <Link href="#" className="font-medium text-indigo-300 hover:text-indigo-200">
+                    Terms and Conditions
+                  </Link>
+                  .
+                </span>
+              </label>
+              {fieldErrors.agreeToTerms ? (
+                <p id="terms-error" className="-mt-2 text-xs text-red-300">
+                  {fieldErrors.agreeToTerms}
                 </p>
               ) : null}
+
+              <button
+                type="submit"
+                disabled={!formData.agreeToTerms || isSubmitting}
+                className="w-full rounded-full bg-linear-to-r from-[#ffd230] to-[#ffb703] px-4 py-3 text-sm font-semibold text-[#071127] shadow-sm transition hover:scale-[1.02] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Registering..." : "Sign Up"}
+              </button>
+            </form>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor="company" className="text-xs text-white/80">
-                  Company Working
-                </label>
-                <div className="relative mt-1">
-                  <Building2
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                  />
-                  <input
-                    id="company"
-                    name="company"
-                    type="text"
-                    spellCheck={false}
-                    autoComplete="off"
-                    placeholder="Company Name"
-                    value={formData.company}
-                    onChange={handleChange}
-                    aria-invalid={Boolean(fieldErrors.company)}
-                    aria-describedby={fieldErrors.company ? "company-error" : undefined}
-                    className={`w-full rounded-lg border bg-white/4 py-2 pr-3 pl-8 text-sm text-white placeholder-white/50 transition focus:outline-none focus:ring-1 ${
-                      fieldErrors.company
-                        ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                        : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                    }`}
-                  />
-                </div>
-                {fieldErrors.company ? (
-                  <p id="company-error" className="mt-1 text-xs text-red-300">
-                    {fieldErrors.company}
-                  </p>
-                ) : null}
-              </div>
-
-              <div>
-                <label htmlFor="address" className="text-xs text-white/80">
-                  Address
-                </label>
-                <div className="relative mt-1">
-                  <MapPin
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-300/85"
-                  />
-                  <input
-                    id="address"
-                    name="address"
-                    type="text"
-                    placeholder="Street Address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    aria-invalid={Boolean(fieldErrors.address)}
-                    aria-describedby={fieldErrors.address ? "address-error" : undefined}
-                    className={`w-full rounded-lg border bg-white/4 py-2 pr-3 pl-8 text-sm text-white placeholder-white/50 transition focus:outline-none focus:ring-1 ${
-                      fieldErrors.address
-                        ? "border-red-400/70 focus:border-red-400 focus:ring-red-400"
-                        : "border-white/10 focus:border-cyan-300 focus:ring-cyan-300"
-                    }`}
-                  />
-                </div>
-                {fieldErrors.address ? (
-                  <p id="address-error" className="mt-1 text-xs text-red-300">
-                    {fieldErrors.address}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5 pt-1">
-              <input
-                id="agreeToTerms"
-                name="agreeToTerms"
-                type="checkbox"
-                checked={formData.agreeToTerms}
-                onChange={handleChange}
-                className="h-3.5 w-3.5 shrink-0 rounded border-white/30 bg-white/10 text-cyan-300 focus:ring-cyan-300"
-                aria-invalid={Boolean(fieldErrors.agreeToTerms)}
-                aria-describedby={fieldErrors.agreeToTerms ? "terms-error" : undefined}
-              />
-              <div className="min-w-0">
-                <label
-                  htmlFor="agreeToTerms"
-                  className="inline-flex flex-wrap items-center gap-1 text-xs leading-4 text-white/80"
-                >
-                  I agree to the following: {" "}
-                  <Link href="#" className="text-cyan-300 transition hover:text-cyan-200">
-                    Terms and Conditions
-                  </Link>{" "}
-                  and{" "}
-                  <Link href="#" className="text-cyan-300 transition hover:text-cyan-200">
-                    Privacy Policy
-                  </Link>
-                </label>
-                {fieldErrors.agreeToTerms ? (
-                  <p id="terms-error" className="mt-1 text-xs text-red-300">
-                    {fieldErrors.agreeToTerms}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!formData.agreeToTerms || isSubmitting}
-              className="w-full rounded-lg bg-linear-to-r from-cyan-400 to-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isSubmitting ? "Registering..." : "Register"}
-            </button>
-          </form>
-        </div>
+          </div>
+        </section>
       </div>
     </main>
   );

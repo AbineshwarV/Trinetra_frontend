@@ -1,237 +1,343 @@
 import Link from "next/link";
+import {
+  FiImage,
+  FiVideo,
+  FiMusic,
+  FiFileText,
+  FiShield,
+  FiZap,
+  FiActivity,
+  FiLock,
+} from "react-icons/fi";
 
 export default function Home() {
   const navItems = ["Product", "Solutions", "Resources", "Pricing", "About Us"];
-  const trustedBy = ["Acme Corp", "ShieldGuard", "NexusBank", "CyberSafe", "InnoTech"];
+
   const features = [
     {
       title: "Advanced Detection",
       description:
-        "Identify deepfakes and synthetic media using state-of-the-art algorithms with industry-leading accuracy.",
-      icon: "◎",
+        "Identify deepfakes and manipulated media using cutting-edge AI models with enterprise-grade accuracy.",
+      icon: FiShield,
     },
     {
       title: "Real-time Analysis",
       description:
-        "Analyze media in real-time and get instant results with minimal latency to act faster.",
-      icon: "◔",
+        "Analyze images, audio, video, and text instantly with ultra-fast processing pipelines.",
+      icon: FiZap,
     },
     {
       title: "Detailed Insights",
       description:
-        "Get comprehensive reports with confidence scores and detailed manipulation indicators.",
-      icon: "▦",
+        "Get confidence scores, forensic breakdowns, and manipulation indicators in seconds.",
+      icon: FiActivity,
     },
     {
       title: "Enterprise Security",
       description:
-        "Bank-grade security with end-to-end encryption and compliance with global standards.",
-      icon: "◉",
+        "Built with secure infrastructure, encrypted workflows, and compliance-ready architecture.",
+      icon: FiLock,
     },
   ];
 
   const workflow = [
     {
-      step: "1",
+      step: "01",
       title: "Upload Media",
-      text: "Upload image, video, audio or provide a live feed.",
+      text: "Upload image, video, audio, or text for AI verification.",
     },
     {
-      step: "2",
-      title: "AI Analysis",
-      text: "Our system scans the media using advanced models.",
+      step: "02",
+      title: "AI Processing",
+      text: "Advanced neural models scan and analyze manipulation traces.",
     },
     {
-      step: "3",
-      title: "Get Results",
-      text: "Receive results with confidence scores in seconds.",
+      step: "03",
+      title: "Generate Report",
+      text: "Receive confidence scores and detailed forensic insights.",
     },
     {
-      step: "4",
+      step: "04",
       title: "Take Action",
-      text: "Review detailed reports and take appropriate action.",
+      text: "Review results and respond instantly to potential threats.",
     },
   ];
 
   return (
-    <main className="min-h-screen bg-[#030b1e] text-white">
-      <section className="relative isolate overflow-hidden pb-12">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_15%,rgba(255,199,0,0.22),transparent_40%),radial-gradient(circle_at_80%_35%,rgba(63,120,255,0.25),transparent_35%),linear-gradient(180deg,#031230_0%,#020a1d_70%)]" />
-        <div className="pointer-events-none absolute -left-40 top-16 h-80 w-80 rounded-full bg-[#ffd230]/20 blur-3xl" />
-        <div className="pointer-events-none absolute right-0 top-32 h-96 w-96 rounded-full bg-[#1d6bff]/20 blur-3xl" />
+    <main className="min-h-screen overflow-hidden bg-[#030b1e] text-white">
+      {/* HERO */}
+      <section className="relative isolate overflow-hidden pb-20">
+        {/* Background */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,210,48,0.15),transparent_30%),radial-gradient(circle_at_80%_30%,rgba(29,107,255,0.18),transparent_35%),linear-gradient(180deg,#020817_0%,#030b1e_100%)]" />
 
-        <div className="relative mx-auto w-full max-w-6xl px-5 pt-6 md:px-8 md:pt-8">
-          <header className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-xl md:px-6">
+        {/* Grid */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-size-[60px_60px]" />
+
+        {/* Glow */}
+        <div className="absolute -left-32 top-20 h-96 w-96 rounded-full bg-[#ffd230]/10 blur-3xl" />
+        <div className="absolute right-0 top-40 h-112 w-md rounded-full bg-[#1d6bff]/10 blur-3xl" />
+
+        <div className="relative mx-auto max-w-7xl px-5 pt-7 md:px-8">
+          {/* HEADER */}
+          <header className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-2xl md:px-6">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#ffd230]/50 bg-[#0d1734] text-[#ffd230]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#ffd230]/40 bg-[#101b3f] text-[#ffd230]">
                 ◈
-              </span>
-              <span className="text-lg font-semibold tracking-wide">TRINETRA</span>
+              </div>
+
+              <span className="text-lg font-bold tracking-wide">TRINETRA</span>
             </div>
-            <nav className="hidden items-center gap-7 text-sm text-white/80 lg:flex">
+
+            <nav className="hidden items-center gap-8 text-sm text-white/70 lg:flex">
               {navItems.map((item) => (
-                <a key={item} href="#" className="transition hover:text-white">
+                <a
+                  key={item}
+                  href="#"
+                  className="transition hover:text-white"
+                >
                   {item}
                 </a>
               ))}
             </nav>
+
             <div className="flex items-center gap-3">
               <Link
                 href="/login"
-                className="hidden rounded-lg px-4 py-2 text-sm text-white/85 transition hover:bg-white/10 md:block"
+                className="hidden rounded-xl px-4 py-2 text-sm text-white/80 transition hover:bg-white/10 md:block"
               >
                 Login
               </Link>
+
               <Link
                 href="/signup"
-                className="rounded-lg bg-[#ffd230] px-4 py-2 text-sm font-semibold text-[#071127] transition hover:bg-[#ffdf69] md:px-5"
+                className="rounded-xl bg-linear-to-r from-[#ffd230] to-[#ffb703] px-5 py-2.5 text-sm font-semibold text-[#071127] transition hover:scale-[1.03]"
               >
-                Get Started →
+                Get Started
               </Link>
             </div>
           </header>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          {/* HERO CONTENT */}
+          <div className="relative mt-16 grid items-center gap-14 lg:grid-cols-[1.1fr_0.9fr]">
+            {/* LEFT */}
             <div>
-              <span className="inline-flex items-center rounded-full border border-white/20 bg-[#0c1838]/70 px-3 py-1 text-xs text-white/90">
-                Enterprise Ready
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-4 py-1 text-xs font-medium tracking-wide text-[#ffd230] backdrop-blur-xl">
+                Enterprise AI Protection
               </span>
-              <h1 className="mt-5 max-w-xl text-4xl font-bold leading-tight tracking-tight md:text-6xl">
-                All-in-one
-                <span className="block text-[#ffd230]">Deepfake Detection</span>
+
+              <h1 className="mt-6 max-w-2xl text-4xl font-black leading-[1.05] tracking-tight md:text-6xl">
+                <span className="text-white">Detect</span>
+
+                <span className="bg-linear-to-r from-[#fff3b0] via-[#ffd230] to-[#ff8c42] bg-clip-text text-transparent">
+                  {" "}
+                  Deepfake
+                </span>
+
+                <span className="block bg-linear-to-r from-white to-white/70 bg-clip-text text-transparent">
+                  Before It Spreads
+                </span>
               </h1>
-              <p className="mt-5 max-w-lg text-base leading-7 text-white/75 md:text-lg">
-                Leverage cutting-edge technology to detect manipulated media with unparalleled accuracy. Protect your
-                organization from synthetic content threats in real-time.
+
+              <p className="mt-6 max-w-xl text-base leading-8 text-white/70 md:text-lg">
+                AI-powered deepfake detection platform built for enterprises,
+                media organizations, and security teams to identify manipulated
+                content with real-time forensic intelligence.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
+              <div className="mt-10 flex flex-wrap gap-4">
                 <Link
                   href="/signup"
-                  className="rounded-lg bg-[#ffd230] px-6 py-3 text-sm font-semibold text-[#071127] transition hover:bg-[#ffdf69]"
+                  className="rounded-2xl bg-linear-to-r from-[#ffd230] to-[#ffb703] px-7 py-4 text-sm font-semibold text-[#071127] transition hover:scale-[1.03]"
                 >
-                  Get Started →
+                  Try Trinetra
                 </Link>
-                <button className="rounded-lg border border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-                  Book a Demo
+
+                <button className="rounded-2xl border border-white/10 bg-white/5 px-7 py-4 text-sm font-semibold text-white backdrop-blur-xl transition hover:bg-white/10">
+                  How It Works
                 </button>
               </div>
 
-              <div className="mt-8 flex flex-wrap gap-5 text-sm text-white/80">
-                <span>98% Accuracy</span>
-                <span>Real-time Analysis</span>
-                <span>Enterprise Security</span>
+              {/* STATS */}
+              <div className="mt-12 flex flex-wrap gap-10">
+                <div>
+                  <p className="text-3xl font-bold text-[#ffd230]">-</p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Detection Accuracy
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-3xl font-bold text-[#ffd230]">-</p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Files Processed
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-3xl font-bold text-[#ffd230]">24/7</p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Deepfake Detection
+                  </p>
+                </div>
               </div>
             </div>
 
-            <aside className="rounded-3xl border border-white/15 bg-[#101d3f]/70 p-5 backdrop-blur-xl">
-              <p className="text-sm text-white/70">Analysis Overview</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-white/10 bg-[#16284e] p-4">
-                  <p className="text-4xl font-bold text-[#ffd230]">98%</p>
-                  <p className="mt-1 text-xs text-white/65">Accuracy</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-[#16284e] p-4">
-                  <p className="text-4xl font-bold text-[#ffd230]">35m</p>
-                  <p className="mt-1 text-xs text-white/65">Media Processed</p>
-                </div>
-              </div>
+            {/* RIGHT DASHBOARD */}
+            <aside className="relative overflow-hidden rounded-[32px] border border-white/10 bg-white/5 p-6 backdrop-blur-2xl">
+              {/* Glow */}
+              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-[#ffd230]/20 blur-3xl" />
 
-              <div className="mt-5">
-                <div className="mb-2 flex items-center justify-between text-sm text-white/70">
-                  <span>Detection Confidence</span>
-                  <span>98%</span>
-                </div>
-                <div className="h-2 rounded-full bg-white/10">
-                  <div className="h-2 w-[98%] rounded-full bg-[#ffd230]" />
-                </div>
-              </div>
+              <div className="relative">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-white/60">
+                      Live Analysis Dashboard
+                    </p>
 
-              <div className="mt-5 grid grid-cols-4 gap-2 text-center text-xs text-white/75">
-                {[
-                  { label: "Image", icon: "▧" },
-                  { label: "Video", icon: "▶" },
-                  { label: "Audio", icon: "◍" },
-                  { label: "Live", icon: "◉" },
-                ].map((item) => (
-                  <div key={item.label} className="rounded-lg border border-white/10 bg-[#16284e] p-3">
-                    <p className="text-base text-[#ffd230]">{item.icon}</p>
-                    <p className="mt-1">{item.label}</p>
+                    <h3 className="mt-1 text-xl font-semibold">
+                      Threat Detection
+                    </h3>
                   </div>
-                ))}
+
+                  <span className="rounded-full border border-[#22c55e]/20 bg-[#22c55e]/10 px-3 py-1 text-xs text-[#4ade80]">
+                    Live
+                  </span>
+                </div>
+
+                {/* METRICS */}
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-[#12244d]/70 p-5">
+                    <p className="text-4xl font-bold text-[#ffd230]">
+                      -
+                    </p>
+
+                    <p className="mt-2 text-sm text-white/60">
+                      AI Confidence
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-[#12244d]/70 p-5">
+                    <p className="text-4xl font-bold text-[#ffd230]">-</p>
+
+                    <p className="mt-2 text-sm text-white/60">
+                      Avg Analysis Time
+                    </p>
+                  </div>
+                </div>
+
+                {/* PROGRESS */}
+                <div className="mt-6 rounded-2xl border border-white/10 bg-[#12244d]/50 p-5">
+                  <div className="mb-3 flex items-center justify-between text-sm text-white/70">
+                    <span>Detection Confidence</span>
+                    <span>-</span>
+                  </div>
+
+                  <div className="h-3 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full w-[98%] rounded-full bg-linear-to-r from-[#ffd230] to-[#ff9f1a]" />
+                  </div>
+                </div>
+
+                {/* TYPES */}
+                <div className="mt-6 grid grid-cols-4 gap-3 text-center">
+                  {[
+                    { label: "Image", icon: FiImage },
+                    { label: "Video", icon: FiVideo },
+                    { label: "Audio", icon: FiMusic },
+                    { label: "Text", icon: FiFileText },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-2xl border border-white/10 bg-[#12244d]/60 p-4 transition hover:-translate-y-1 hover:border-[#ffd230]/30"
+                    >
+                      <item.icon className="mx-auto text-xl text-[#ffd230]" />
+
+                      <p className="mt-2 text-xs text-white/70">
+                        {item.label}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </aside>
           </div>
+        </div>
+      </section>
 
-          <div className="mt-8 rounded-2xl border border-white/10 bg-[#0a1838]/70 px-4 py-4 md:px-6">
-            <p className="mb-3 text-center text-xs text-white/60 md:text-left">Trusted by leading organizations</p>
-            <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-sm text-white/85 md:justify-between">
-              {trustedBy.map((brand) => (
-                <span key={brand}>{brand}</span>
-              ))}
-            </div>
+      {/* FEATURES */}
+      <section className="relative bg-[#f5f7fb] px-5 py-24 text-[#121826] md:px-8">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-center text-xs font-bold uppercase tracking-[0.3em] text-[#c29d03]">
+            Features
+          </p>
+
+          <h2 className="mt-4 text-center text-4xl font-black md:text-5xl">
+            Built for Modern Media Security
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-2xl text-center text-lg text-[#5b6475]">
+            Enterprise-grade tools designed to identify, analyze, and prevent
+            synthetic media threats at scale.
+          </p>
+
+          <div className="mt-16 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {features.map((feature) => {
+              const Icon = feature.icon;
+
+              return (
+                <article
+                  key={feature.title}
+                  className="group rounded-[28px] border border-[#e5e7eb] bg-white p-7 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f3f6fc] text-[#1d2f5f] transition group-hover:bg-[#ffd230]/10 group-hover:text-[#ffd230]">
+                    <Icon className="text-2xl" />
+                  </div>
+
+                  <h3 className="mt-6 text-2xl font-bold">
+                    {feature.title}
+                  </h3>
+
+                  <p className="mt-4 text-sm leading-8 text-[#5b6475]">
+                    {feature.description}
+                  </p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      <section className="bg-[#f5f6f8] px-5 py-16 text-[#121826] md:px-8">
-        <div className="mx-auto max-w-6xl">
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.24em] text-[#c29d03]">Features</p>
-          <h2 className="mt-3 text-center text-3xl font-bold md:text-4xl">Powerful Features for Complete Protection</h2>
-          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            {features.map((feature) => (
-              <article key={feature.title} className="rounded-2xl border border-[#e4e7ec] bg-white p-6 shadow-sm">
-                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#f4f6fb] text-lg text-[#1d2f5f]">
-                  {feature.icon}
-                </span>
-                <h3 className="mt-5 text-xl font-semibold">{feature.title}</h3>
-                <p className="mt-3 text-sm leading-7 text-[#515a6b]">{feature.description}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* WORKFLOW */}
+      <section className="relative overflow-hidden bg-[#020d24] px-5 py-24 md:px-8">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,210,48,0.12),transparent_35%),radial-gradient(circle_at_20%_100%,rgba(29,107,255,0.15),transparent_40%)]" />
 
-      <section className="relative overflow-hidden bg-[#020d24] px-5 py-16 md:px-8">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,210,48,0.15),transparent_35%),radial-gradient(circle_at_20%_100%,rgba(29,107,255,0.2),transparent_40%)]" />
-        <div className="relative mx-auto max-w-6xl">
-          <p className="text-center text-xs font-semibold uppercase tracking-[0.24em] text-[#ffd230]">How It Works</p>
-          <h2 className="mt-3 text-center text-3xl font-bold md:text-4xl">Simple. Fast. Accurate.</h2>
+        <div className="relative mx-auto max-w-7xl">
+          <p className="text-center text-xs font-bold uppercase tracking-[0.3em] text-[#ffd230]">
+            Workflow
+          </p>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          <h2 className="mt-4 text-center text-4xl font-black md:text-5xl">
+            Fast. Accurate. Intelligent.
+          </h2>
+
+          <div className="relative mt-16 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             {workflow.map((item) => (
-              <article key={item.step} className="rounded-2xl border border-white/10 bg-[#0b1a3f]/80 p-6 text-center">
-                <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full border border-[#ffd230]/40 bg-[#132651] text-lg text-[#ffd230]">
+              <article
+                key={item.step}
+                className="rounded-[28px] border border-white/10 bg-white/5 p-7 backdrop-blur-xl"
+              >
+                <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[#ffd230]/20 bg-[#132651] text-lg font-bold text-[#ffd230]">
                   {item.step}
                 </span>
-                <h3 className="mt-4 text-xl font-semibold">{item.title}</h3>
-                <p className="mt-2 text-sm leading-7 text-white/75">{item.text}</p>
+
+                <h3 className="mt-6 text-2xl font-bold">
+                  {item.title}
+                </h3>
+
+                <p className="mt-4 text-sm leading-8 text-white/70">
+                  {item.text}
+                </p>
               </article>
             ))}
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-            <article className="rounded-2xl border border-white/10 bg-[#0b1a3f]/80 p-6">
-              <p className="text-5xl text-[#ffd230]">“</p>
-              <p className="mt-2 max-w-xl text-lg text-white/90">
-                TRINETRA has revolutionized how we approach content verification. The accuracy and speed are unmatched.
-              </p>
-              <p className="mt-5 text-sm font-semibold text-[#ffd230]">Rahul Mehta</p>
-              <p className="text-sm text-white/65">CTO, CyberSafe Solutions</p>
-            </article>
-
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
-              {[
-                { label: "Enterprise Clients", value: "500+" },
-                { label: "Media Analyzed", value: "2M+" },
-                { label: "Accuracy Rate", value: "98%" },
-              ].map((stat) => (
-                <article key={stat.label} className="rounded-2xl border border-white/10 bg-[#0b1a3f]/80 p-5 text-center">
-                  <p className="text-4xl font-bold text-[#ffd230]">{stat.value}</p>
-                  <p className="mt-2 text-sm text-white/75">{stat.label}</p>
-                </article>
-              ))}
-            </div>
           </div>
         </div>
       </section>

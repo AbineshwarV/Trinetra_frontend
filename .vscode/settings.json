@@ -1,0 +1,18 @@
+{
+  "css.lint.unknownAtRules": "ignore",
+  "scss.lint.unknownAtRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+  "terminal.integrated.profiles.windows": {
+    "CORE PS": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell",
+      "args": [
+        "-NoLogo",
+        "-NoExit",
+        "-Command",
+        "function prompt { \"CORE> \" }; Set-Location -LiteralPath \"${workspaceFolder}\""
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.windows": "CORE PS"
+}

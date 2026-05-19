@@ -92,6 +92,28 @@ h4 {
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --app-shell-bg: #06101f;
+  --app-shell-bg-2: #0a1630;
+  --app-shell-panel: rgba(255, 255, 255, 0.045);
+  --app-shell-panel-2: rgba(255, 255, 255, 0.07);
+  --app-shell-border: rgba(148, 163, 184, 0.18);
+  --app-shell-muted: rgba(226, 232, 240, 0.74);
+  --app-shell-card: rgba(7, 15, 34, 0.68);
+  --app-shell-card-2: rgba(7, 15, 34, 0.78);
+  --app-shell-card-border: rgba(148, 163, 184, 0.16);
+  --app-shell-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  --app-shell-highlight-gradient: linear-gradient(90deg, #5b4ae6 0%, #2f6fcb 100%);
+  --app-shell-highlight-soft: linear-gradient(90deg, rgba(91, 74, 230, 0.18) 0%, rgba(47, 111, 203, 0.18) 100%);
+  --app-shell-bg-gradient:
+    radial-gradient(circle at 14% 20%, rgba(18, 64, 104, 0.34), transparent 34%),
+    radial-gradient(circle at 58% 18%, rgba(30, 58, 138, 0.18), transparent 42%),
+    radial-gradient(circle at 88% 14%, rgba(49, 46, 129, 0.20), transparent 36%),
+    linear-gradient(90deg, #081527 0%, #0a1730 48%, #0c1634 100%);
+  --app-shell-accent: #3b82f6;
+  --app-shell-accent-2: #8b5cf6;
+  --app-shell-accent-3: #22d3ee;
+  --app-shell-accent-4: #22c55e;
+  --app-shell-accent-5: #fbbf24;
 }
 
 .dark {
@@ -126,6 +148,7 @@ h4 {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
 }
 
 @layer base {
@@ -174,27 +197,46 @@ h4 {
   height: 0;
 }
 
-.signup-page input,
-.signup-page textarea,
-.signup-page select,
-.signup-page button {
+.auth-page input,
+.auth-page textarea,
+.auth-page select,
+.auth-page button {
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
 }
 
-.signup-page input,
-.signup-page textarea,
-.signup-page select {
+.auth-page input,
+.auth-page textarea,
+.auth-page select {
   color-scheme: dark;
 }
 
-.signup-page .phone-number-input {
+.auth-page .phone-number-input {
   border-top-right-radius: 1rem;
   border-bottom-right-radius: 1rem;
 }
 
-.signup-page .signup-success-timer {
+.auth-page .signup-success-timer {
   animation: signup-success-timer 15s linear forwards;
+}
+
+.auth-page {
+  background: var(--app-shell-bg-gradient);
+}
+
+.auth-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 72px 72px;
+  opacity: 0.16;
+}
+
+.app-shell-shadow {
+  box-shadow: var(--app-shell-shadow);
 }
 
 @keyframes signup-success-timer {
@@ -207,10 +249,10 @@ h4 {
   }
 }
 
-.signup-page input:-webkit-autofill,
-.signup-page input:-webkit-autofill:hover,
-.signup-page input:-webkit-autofill:focus,
-.signup-page input:-webkit-autofill:active {
+.auth-page input:-webkit-autofill,
+.auth-page input:-webkit-autofill:hover,
+.auth-page input:-webkit-autofill:focus,
+.auth-page input:-webkit-autofill:active {
   color: #ffffff !important;
   -webkit-text-fill-color: #ffffff !important;
   caret-color: #ffffff !important;

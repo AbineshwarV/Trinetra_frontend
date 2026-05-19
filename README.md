@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Core Frontend
 
-## Getting Started
+This is the frontend application built with [Next.js](https://nextjs.org) for the core analyzer project.
 
-First, run the development server:
+## Project Purpose
+
+The frontend provides the user interface for the TRiNETRA analyzer and communicates with the backend via secured API routes.
+
+### Key pages
+- `/analyzer` — upload media, text, or URL input for analysis
+- `/analyzer/recents` — view recent analysis results for the authenticated user
+- `/analyzer/results/[analysisId]` — display detailed analysis result data
+- `/login` — user login
+- `/signup` — user registration
+
+## Architecture
+
+- Client-side pages are located in `app/`.
+- Shared UI and session logic is in `components/`.
+- The sidebar and recents feed load recent analysis data from the backend API.
+- Analysis actions do not access the database directly. All data comes from backend API endpoints.
+
+## Backend Integration
+
+This frontend is tightly coupled with the TRiNETRA backend running in the `core` repository.
+
+### Backend APIs used
+- `POST /api/uploads` — upload media files
+- `POST /api/inputs` — submit text or URL input
+- `POST /api/analyze/{uploadId}` — start analysis for the upload
+- `GET /api/analysis-results?limit=...` — fetch recent analysis records
+- `GET /api/analysis-results/{analysisId}` — fetch a single stored result
+
+### Current behavior implemented
+- After successful analysis, the frontend dispatches a browser event `recents:update` to refresh the recents list immediately.
+- The sidebar listens for `recents:update` and reloads the top recent items.
+- The recents page listens for the same event and reloads its full list.
+- The frontend uses `fetch(..., { cache: 'no-store' })` for recent and result calls to avoid stale caching in the browser or proxies.
+
+## Running the Frontend
 
 ```bash
+cd "C:\Users\Asus\OneDrive\Desktop\Trinetra_frontend"
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Connection to Backend
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The frontend expects the backend to be running separately on `http://127.0.0.1:8000` or the configured backend origin.
 
-## Learn More
+If you need the backend documentation and architecture, see the core backend README at `../core/README.md`.
 
-To learn more about Next.js, take a look at the following resources:
+### Deployment configuration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+`next.config.mjs` proxies `/api/*` to the gateway and core services.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Set these env vars for non-local deployments:
 
-## Deploy on Vercel
+```bash
+GATEWAY_BASE_URL=https://your-gateway.example.com
+CORE_BASE_URL=https://your-core.example.com
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Notes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- The frontend does not directly connect to MongoDB or Redis.
+- Recents and result state are loaded through backend APIs only.
+- Redis is optional in the backend and is not required for the frontend to function.

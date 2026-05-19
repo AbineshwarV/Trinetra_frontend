@@ -24,7 +24,7 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trinetra | All-in-one Deepfake Detection",
+  title: "Trinetra",
   description:
     "Trinetra helps organizations detect manipulated media with high accuracy, real-time analysis, and enterprise-grade security.",
 };
