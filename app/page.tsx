@@ -155,9 +155,9 @@ export default function Home() {
               {/* STATS */}
               <div className="mt-12 flex flex-wrap gap-10">
                 <div>
-                  <p className="text-3xl font-bold text-[#ffd230]">94.3%</p>
+                  <p className="text-3xl font-bold text-[#ffd230]">21</p>
                   <p className="mt-1 text-sm text-white/60">
-                    Detection Accuracy
+                    Test Cases Evaluated
                   </p>
                 </div>
 
@@ -218,11 +218,11 @@ export default function Home() {
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-[#12244d]/70 p-5">
                     <p className="text-4xl font-bold text-[#ffd230]">
-                      21
+                      94.3%
                     </p>
 
                     <p className="mt-2 text-sm text-white/60">
-                      Test Cases Evaluated
+                      Detection Accuracy
                     </p>
                   </div>
 
