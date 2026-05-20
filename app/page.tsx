@@ -8,6 +8,7 @@ import {
   FiZap,
   FiActivity,
   FiLock,
+  FiArrowUpRight,
 } from "react-icons/fi";
 
 import AnnouncementBanner from "../components/announcement-banner";
@@ -154,16 +155,16 @@ export default function Home() {
               {/* STATS */}
               <div className="mt-12 flex flex-wrap gap-10">
                 <div>
-                  <p className="text-3xl font-bold text-[#ffd230]">92%</p>
+                  <p className="text-3xl font-bold text-[#ffd230]">94.3%</p>
                   <p className="mt-1 text-sm text-white/60">
                     Detection Accuracy
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-3xl font-bold text-[#ffd230]">50</p>
+                  <p className="text-3xl font-bold text-[#ffd230]">4/4</p>
                   <p className="mt-1 text-sm text-white/60">
-                    Files Processed
+                    Modalities Covered
                   </p>
                 </div>
 
@@ -193,22 +194,40 @@ export default function Home() {
                     </h3>
                   </div>
 
+                  {/* Live badge area */}
+                  <a
+                    href="/Trinetra_Benchmark_Report_May2026.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group inline-flex items-center gap-2.5 rounded-full border border-[#1d6bff]/25 bg-linear-to-r from-[#0b1638]/80 via-[#12244d]/75 to-[#0b1638]/80 px-3 py-1 text-[13px] font-semibold text-white/90 backdrop-blur-xl transition hover:border-[#ffd230]/30 hover:from-[#0b1638] hover:via-[#153064]/80 hover:to-[#0b1638]"
+                    aria-label="Open Trinetra Benchmark Report (PDF) in a new tab"
+                  >
+                    <FiFileText className="text-base text-[#ffd230]" />
+
+                    <span className="whitespace-nowrap">
+                      Benchmark Report
+                    </span>
+
+                    <span className="grid h-7 w-7 place-items-center rounded-full bg-linear-to-r from-[#ffd230] via-[#ffb703] to-[#1d6bff] text-[#061127] shadow-[0_0_0_1px_rgba(255,255,255,0.10)] transition group-hover:scale-[1.03]">
+                      <FiArrowUpRight className="text-[15px]" />
+                    </span>
+                  </a>
                 </div>
 
                 {/* METRICS */}
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-[#12244d]/70 p-5">
                     <p className="text-4xl font-bold text-[#ffd230]">
-                      -
+                      21
                     </p>
 
                     <p className="mt-2 text-sm text-white/60">
-                      AI Confidence
+                      Test Cases Evaluated
                     </p>
                   </div>
 
                   <div className="rounded-2xl border border-white/10 bg-[#12244d]/70 p-5">
-                    <p className="text-4xl font-bold text-[#ffd230]">-</p>
+                    <p className="text-4xl font-bold text-[#ffd230]">51.15 sec</p>
 
                     <p className="mt-2 text-sm text-white/60">
                       Avg Analysis Time
@@ -220,11 +239,11 @@ export default function Home() {
                 <div className="mt-6 rounded-2xl border border-white/10 bg-[#12244d]/50 p-5">
                   <div className="mb-3 flex items-center justify-between text-sm text-white/70">
                     <span>Detection Confidence</span>
-                    <span>92%</span>
+                    <span>94.3%</span>
                   </div>
 
                   <div className="h-3 overflow-hidden rounded-full bg-white/10">
-                    <div className="h-full w-[92%] rounded-full bg-linear-to-r from-[#ffd230] to-[#ff9f1a]" />
+                    <div className="h-full w-[94.3%] rounded-full bg-linear-to-r from-[#ffd230] to-[#ff9f1a]" />
                   </div>
                 </div>
 
