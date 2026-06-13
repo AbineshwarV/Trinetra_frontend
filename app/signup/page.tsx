@@ -158,12 +158,6 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!isCodeOpen) return;
-    const selectedIndex = dialCodeOptions.findIndex((option) => option.dialCode === formData.countryCode);
-    setActiveDialIndex(selectedIndex >= 0 ? selectedIndex : 0);
-  }, [dialCodeOptions, formData.countryCode, isCodeOpen]);
-
-  useEffect(() => {
-    if (!isCodeOpen) return;
     const option = dialCodeOptions[activeDialIndex];
     if (!option) return;
     const id = `dial-opt-${option.iso2}-${option.dialCode.replace("+", "")}`;
@@ -467,7 +461,11 @@ export default function SignupPage() {
                     <button
                       id="countryCode"
                       type="button"
-                      onClick={() => setIsCodeOpen((prev) => !prev)}
+                      onClick={() => {
+                        const selectedIndex = dialCodeOptions.findIndex((option) => option.dialCode === formData.countryCode);
+                        setActiveDialIndex(selectedIndex >= 0 ? selectedIndex : 0);
+                        setIsCodeOpen((prev) => !prev);
+                      }}
                       aria-haspopup="listbox"
                       aria-expanded={isCodeOpen}
                       onKeyDown={(e) => {

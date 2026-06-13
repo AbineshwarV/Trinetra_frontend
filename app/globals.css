@@ -161,30 +161,36 @@ h4 {
   html {
     @apply font-sans;
   }
+  .maplibregl-popup-content {
+    @apply bg-transparent! shadow-none! p-0! rounded-none!;
+  }
+  .maplibregl-popup-tip {
+    @apply hidden!;
+  }
 }
 
 .thin-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(34, 211, 238, 0.75) rgba(255, 255, 255, 0.08);
+  scrollbar-color: rgba(94, 114, 140, 0.92) rgba(10, 17, 32, 0.42);
 }
 
 .thin-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(10, 17, 32, 0.42);
   border-radius: 999px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(34, 211, 238, 0.75);
+  background: rgba(94, 114, 140, 0.92);
   border-radius: 999px;
 }
 
 .thin-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(103, 232, 249, 0.88);
+  background: rgba(122, 141, 165, 0.98);
 }
 
 .no-scrollbar {

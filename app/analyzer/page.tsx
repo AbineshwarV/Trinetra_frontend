@@ -2,8 +2,9 @@
 
 
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, CloudUpload, Clock3, Layers, Loader2, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, CloudUpload, Clock3, Eye, Globe, Layers, LockKeyhole, Loader2, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { AnalyzerResultDashboard } from "@/components/analyzer-result-dashboard";
 import { apiFetch } from "@/lib/api";
 
@@ -23,6 +24,8 @@ interface JobResponse {
 }
 
 const RUNNING_PROGRESS_CAP = 94;
+const ACCENT_GRADIENT = "var(--app-shell-highlight-gradient)";
+const ACCENT_SOFT = "var(--app-shell-highlight-soft)";
 const STAGE_MILESTONES = [
   { name: "Extracting frames", progress: 20, icon: "ðŸŽžï¸" },
   { name: "Video analysis", progress: 35, icon: "ðŸ“¹" },
@@ -141,6 +144,8 @@ export default function AnalyzerPage() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [existingPublic, setExistingPublic] = useState<{ analysis_id: string; created_at?: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jobEventsRef = useRef<EventSource | null>(null);
   const backendStatusRef = useRef<string>("");
@@ -455,24 +460,89 @@ export default function AnalyzerPage() {
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
       <div className="flex w-full flex-col gap-6">
+        {existingPublic ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4">
+            <div className="relative w-full max-w-md rounded-2xl border border-indigo-300/20 bg-[#0b1426] p-5 shadow-[0_24px_60px_rgba(2,6,23,0.55)]">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-full border border-indigo-300/40 text-indigo-100 shadow-[0_0_20px_rgba(91,74,230,0.35)]"
+                  style={{ backgroundImage: ACCENT_GRADIENT }}
+                >
+                  <ShieldCheck className="h-7 w-7" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-white">Public analysis already exists</h3>
+                  <p className="mt-2 text-xs text-slate-300">
+                    This URL has already been analyzed and the results are available under public visibility.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-lg font-semibold text-indigo-200">
+                    #
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase tracking-widest text-slate-400">Analysis ID</div>
+                    <div className="mt-1 text-sm font-semibold text-white">
+                      {existingPublic.analysis_id}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="my-4 flex items-center gap-3 text-slate-500">
+                <div className="h-px flex-1 bg-white/10" />
+                <span className="text-xl">✦</span>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-5 py-2 text-sm font-semibold text-white"
+                  onClick={() => setExistingPublic(null)}
+                >
+                  ✕
+                  Cancel
+                </button>
+                <Link
+                  href={`/analyzer/results/${encodeURIComponent(existingPublic.analysis_id)}?source=public`}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-indigo-300/18 px-5 py-2 text-sm font-semibold text-white"
+                  style={{ backgroundImage: ACCENT_GRADIENT }}
+                  onClick={() => setExistingPublic(null)}
+                >
+                  👁
+                  See result
+                </Link>
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-3 border-t border-white/10 pt-4 text-xs text-slate-400">
+                <LockKeyhole className="h-4 w-4" />
+                Only you can see this analysis.
+              </div>
+            </div>
+          </div>
+        ) : null}
         {/* Main Card: Input, Progress, or Result */}
         {!result && (
         <section className="rounded-[1.75rem] border border-(--app-shell-card-border) bg-[rgba(10,20,42,0.62)] p-5 shadow-[0_18px_44px_rgba(2,8,23,0.24)] backdrop-blur-xl sm:p-6 lg:p-8">
           {/* Show input if idle and no result */}
           {stage === "idle" && !result && (
             <form onSubmit={handleAnalyze}>
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
-                  <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
+                    <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
+                  </div>
+                  <div
+                    className="hidden rounded-full border border-sky-300/16 px-3 py-1 text-xs text-slate-200 sm:block"
+                    style={{ backgroundImage: ACCENT_SOFT }}
+                  >
+                    Supports video, audio, and text
+                  </div>
                 </div>
-                <div
-                  className="hidden rounded-full border border-sky-300/16 px-3 py-1 text-xs text-slate-200 sm:block"
-                  style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
-                >
-                  Supports video, audio, and text
-                </div>
-              </div>
               <div
                 className="mt-6 rounded-[1.5rem] border border-dashed border-cyan-300/20 bg-[linear-gradient(180deg,rgba(11,22,46,0.38),rgba(8,17,36,0.28))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm sm:p-8"
                 onDrop={handleDrop}
@@ -561,7 +631,7 @@ export default function AnalyzerPage() {
               <button
                 type="submit"
                 className="mx-auto mt-6 flex items-center justify-center gap-2 rounded-xl border border-sky-300/18 px-6 py-3 text-sm font-semibold text-white backdrop-blur-lg transition-all duration-300 hover:scale-105 hover:brightness-110 hover:shadow-[0_0_22px_rgba(47,111,203,0.22)] disabled:opacity-60"
-                style={{ backgroundImage: "var(--app-shell-highlight-gradient)" }}
+                style={{ backgroundImage: ACCENT_GRADIENT }}
                 disabled={loading || (!file && !input.trim())}
               >
                 {loading ? (
@@ -583,6 +653,78 @@ export default function AnalyzerPage() {
               ) : null}
             </form>
           )}
+
+          {stage === "idle" && !result ? (
+            <div className="rounded-2xl border border-indigo-300/25 bg-slate-800/40 p-8">
+              <div className="flex items-start gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-300/30 bg-indigo-400/10">
+                  <Eye className="h-5 w-5 text-indigo-300" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold text-white">Visibility</p>
+                  <p className="text-sm text-slate-400">Choose who can view this analysis result.</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setVisibility("private")}
+                  className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
+                    visibility === "private"
+                      ? "border-indigo-400/50 bg-slate-900/50"
+                      : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "private" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
+                      {visibility === "private" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800/50">
+                      <LockKeyhole className="h-5 w-5 text-slate-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-white">Private</p>
+                      <p className="text-xs text-slate-400">Only you can view this analysis.</p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setVisibility("public")}
+                  className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
+                    visibility === "public"
+                      ? "border-indigo-400/50 bg-slate-900/50"
+                      : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "public" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
+                      {visibility === "public" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
+                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-400/15">
+                      <Globe className="h-5 w-5 text-indigo-300" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white">Public</p>
+                        <span className="rounded-full bg-indigo-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-100">Recommended</span>
+                      </div>
+                      <p className="text-xs text-slate-400">Make this analysis result visible to all users.</p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+
+              <div className="mt-6 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                  <p className="text-xs text-emerald-100">Once set to public, anyone with the link can view the analysis result.</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {/* Simple loader while processing */}
           {stage !== "idle" && !result && (

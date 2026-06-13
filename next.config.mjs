@@ -1,5 +1,6 @@
 ﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["192.168.31.81"],
   experimental: {
     // Allow larger upload bodies to pass through Next.js middleware/proxy layer.
     // Default is 10MB which can cause ECONNRESET/socket hang up during proxying.
