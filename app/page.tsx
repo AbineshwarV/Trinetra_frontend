@@ -24,27 +24,29 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (valu
     <button
       type="button"
       onClick={() => onChange(!enabled)}
-      className="relative flex h-11 w-full items-center rounded-full border border-white/10 bg-[#0f1526] px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-white/20 overflow-hidden"
+      className="relative flex h-11 w-full items-center rounded-full border border-white/10 bg-[#0f1526] px-1 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition hover:border-white/20 overflow-hidden md:w-[360px] lg:w-[460px]"
       aria-pressed={enabled}
       aria-label="Toggle landing page mode"
     >
       <span
-        className={`absolute left-1 top-1 h-9 rounded-full transition-all duration-300 w-[46%] ${
+        className={`absolute top-1 h-9 rounded-full transition-[transform,background-color] duration-300 w-[calc(50%-1rem)] md:w-[calc(50%-0.75rem)] ${
           enabled
-            ? "translate-x-full bg-linear-to-r from-[#8b5cf6] via-[#a855f7] to-[#7c3aed]"
+            ? "left-auto right-1 bg-linear-to-r from-[#8b5cf6] via-[#a855f7] to-[#7c3aed]"
             : "bg-linear-to-r from-[#f7c948] to-[#ffb703]"
         }`}
+        style={{ transform: enabled ? "translateX(0)" : "translateX(0)" }}
       />
-      <span className={`relative z-10 min-w-0 flex-1 px-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] truncate ${enabled ? "text-white/25" : "text-white"}`}>
+      <span className={`relative z-10 min-w-0 flex-[1.2] px-2 text-[9px] sm:text-[10px] md:text-[12px] font-bold uppercase tracking-[0.08em] truncate text-center ${enabled ? "text-white/25" : "text-white"}`}>
         <span className="hidden sm:inline">SYNTHETIC DEEPFAKE</span>
-        <span className="inline sm:hidden">DEEPFAKE</span>
+        <span className="inline sm:hidden">SYNTHETIC</span>
       </span>
-      <span className={`relative z-10 min-w-0 flex-1 px-2 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.12em] truncate ${enabled ? "text-white" : "text-white/30"}`}>
+      <span className={`relative z-10 min-w-0 flex-[1] px-2 text-[9px] sm:text-[10px] md:text-[12px] font-bold uppercase tracking-[0.08em] truncate text-center ${enabled ? "text-white" : "text-white/30"}`}>
         <span className="hidden sm:inline">PULSE + TIMESIGHT</span>
         <span className="inline sm:hidden">PULSE</span>
       </span>
       <span
-        className={`absolute top-1.5 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_0_18px_rgba(255,255,255,0.18)] transition-all duration-300 ${enabled ? "right-4" : "left-4"}`}
+        className="pointer-events-none absolute top-1.5 h-7 w-7 rounded-full bg-white shadow-[0_0_0_1px_rgba(255,255,255,0.16),0_0_12px_rgba(255,255,255,0.14)] transition-all duration-300 sm:h-7 sm:w-7 md:h-7 md:w-7 lg:h-8 lg:w-8"
+        style={{ left: enabled ? "calc(50% + 0.9rem)" : "0.35rem" }}
       />
     </button>
   );
@@ -52,6 +54,7 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (valu
 
 function OriginalLanding({ pulseMode, setPulseMode }: { pulseMode: boolean; setPulseMode: (value: boolean) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const mobileMenuId = "landing-mobile-menu";
   const features = [
     { title: "Advanced Detection", description: "Identify deepfakes and manipulated media using cutting-edge AI models with enterprise-grade accuracy.", icon: FiShield },
     { title: "Real-time Analysis", description: "Analyze images, audio, video, and text instantly with ultra-fast processing pipelines.", icon: FiZap },
@@ -74,37 +77,41 @@ function OriginalLanding({ pulseMode, setPulseMode }: { pulseMode: boolean; setP
         <div className="absolute -left-32 top-20 h-96 w-96 rounded-full bg-[#ffd230]/10 blur-3xl" />
         <div className="absolute right-0 top-40 h-112 w-md rounded-full bg-[#1d6bff]/10 blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-5 pt-7 md:px-8">
-          <header className="relative flex flex-col items-stretch gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-2xl md:px-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
+          <header className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-2xl md:px-6">
+            <div className="flex min-w-0 items-center gap-3">
               <Image src="/logo.png" alt="Trinetra" width={40} height={40} className="rounded-xl object-cover" style={{ width: "auto", height: "auto" }} />
               <span className="hidden text-lg font-bold tracking-wide sm:inline-block">TRINETRA</span>
             </div>
-            <div className="hidden md:flex justify-center">
+            <div className="hidden xl:flex flex-1 justify-center px-4">
               <ToggleSwitch enabled={pulseMode} onChange={setPulseMode} />
             </div>
-            <div className="flex items-center gap-3 justify-between sm:justify-end">
-              <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="hidden xl:flex items-center gap-3">
                 <Link href="/login" className="rounded-xl px-4 py-2 text-sm text-white/80 transition hover:bg-white/10">Login</Link>
                 <Link href="/signup" className="rounded-xl bg-linear-to-r from-[#ffd230] to-[#ffb703] px-5 py-2.5 text-sm font-semibold text-[#071127] transition hover:scale-[1.03]">Get Started</Link>
               </div>
               <button
                 type="button"
                 onClick={() => setMenuOpen((current) => !current)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0f1526] text-white transition hover:border-white/20 md:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0f1526] text-white transition hover:border-white/20 xl:hidden"
                 aria-label="Toggle menu"
+                aria-expanded={menuOpen}
+                aria-controls={mobileMenuId}
               >
-                {menuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
+                <span className={`transition-transform duration-200 ${menuOpen ? "rotate-90" : ""}`}>
+                  {menuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
+                </span>
               </button>
             </div>
           </header>
           {menuOpen ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-2xl md:hidden">
+            <div id={mobileMenuId} className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-2xl xl:hidden">
               <div className="mb-4">
                 <ToggleSwitch enabled={pulseMode} onChange={setPulseMode} />
               </div>
               <div className="flex flex-col gap-3">
-                <Link href="/login" className="rounded-xl border border-white/10 bg-[#0f1526] px-4 py-3 text-center text-sm text-white transition hover:bg-white/10">Login</Link>
-                <Link href="/signup" className="rounded-xl bg-linear-to-r from-[#ffd230] to-[#ffb703] px-4 py-3 text-center text-sm font-semibold text-[#071127] transition hover:scale-[1.02]">Get Started</Link>
+                <Link href="/login" onClick={() => setMenuOpen(false)} className="rounded-xl border border-white/10 bg-[#0f1526] px-4 py-3 text-center text-sm text-white transition hover:bg-white/10">Login</Link>
+                <Link href="/signup" onClick={() => setMenuOpen(false)} className="rounded-xl bg-linear-to-r from-[#ffd230] to-[#ffb703] px-4 py-3 text-center text-sm font-semibold text-[#071127] transition hover:scale-[1.02]">Get Started</Link>
               </div>
             </div>
           ) : null}
@@ -185,43 +192,48 @@ function OriginalLanding({ pulseMode, setPulseMode }: { pulseMode: boolean; setP
 
 function PulseLanding({ setPulseMode }: { setPulseMode: (value: boolean) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const mobileMenuId = "pulse-mobile-menu";
   return (
     <main className="min-h-screen overflow-hidden bg-[#050816] text-white">
       <AnnouncementBanner variant="pulse" />
       <section className="relative isolate overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(107,70,193,0.16),transparent_25%),radial-gradient(circle_at_75%_36%,rgba(59,130,246,0.12),transparent_24%),linear-gradient(180deg,#04060f_0%,#050816_100%)]" />
         <div className="relative mx-auto max-w-7xl px-5 pb-24 pt-6 md:px-8">
-          <header className="flex flex-col items-stretch gap-3 rounded-[22px] border border-white/10 bg-[rgba(10,14,28,0.82)] px-4 py-3 backdrop-blur-2xl md:px-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
+          <header className="flex items-center justify-between gap-3 rounded-[22px] border border-white/10 bg-[rgba(10,14,28,0.82)] px-4 py-3 backdrop-blur-2xl md:px-6">
+            <div className="flex min-w-0 items-center gap-3">
               <Image src="/logo.png" alt="Trinetra" width={40} height={40} className="rounded-xl object-cover" style={{ width: "auto", height: "auto" }} />
               <span className="hidden text-lg font-bold tracking-[0.2em] sm:inline-block">TRINETRA</span>
             </div>
-            <div className="hidden md:flex justify-center">
+            <div className="hidden xl:flex flex-1 justify-center px-4">
               <ToggleSwitch enabled onChange={setPulseMode} />
             </div>
-            <div className="flex items-center gap-3 justify-between sm:justify-end">
-              <div className="hidden md:flex items-center gap-3">
+            <div className="flex items-center gap-3">
+              <div className="hidden xl:flex items-center gap-3">
                 <Link href="/login" className="rounded-xl px-4 py-2 text-sm text-white/80 transition hover:bg-white/10">Login</Link>
                 <Link href="/signup" className="rounded-xl bg-linear-to-r from-violet-500 to-fuchsia-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:scale-[1.03] shadow-[0_0_25px_rgba(168,85,247,0.22)]">Get Started</Link>
               </div>
               <button
                 type="button"
                 onClick={() => setMenuOpen((current) => !current)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0f1526] text-white transition hover:border-white/20 md:hidden"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-[#0f1526] text-white transition hover:border-white/20 xl:hidden"
                 aria-label="Toggle menu"
+                aria-expanded={menuOpen}
+                aria-controls={mobileMenuId}
               >
-                {menuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
+                <span className={`transition-transform duration-200 ${menuOpen ? "rotate-90" : ""}`}>
+                  {menuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
+                </span>
               </button>
             </div>
           </header>
           {menuOpen ? (
-            <div className="mt-3 rounded-2xl border border-white/10 bg-[rgba(10,14,28,0.86)] p-4 backdrop-blur-2xl md:hidden">
+            <div id={mobileMenuId} className="mt-3 rounded-2xl border border-white/10 bg-[rgba(10,14,28,0.86)] p-4 backdrop-blur-2xl xl:hidden">
               <div className="mb-4">
                 <ToggleSwitch enabled onChange={setPulseMode} />
               </div>
               <div className="flex flex-col gap-3">
-                <Link href="/login" className="rounded-xl border border-white/10 bg-[#0f1526] px-4 py-3 text-center text-sm text-white transition hover:bg-white/10">Login</Link>
-                <Link href="/signup" className="rounded-xl bg-linear-to-r from-violet-500 to-fuchsia-500 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.02]">Get Started</Link>
+                <Link href="/login" onClick={() => setMenuOpen(false)} className="rounded-xl border border-white/10 bg-[#0f1526] px-4 py-3 text-center text-sm text-white transition hover:bg-white/10">Login</Link>
+                <Link href="/signup" onClick={() => setMenuOpen(false)} className="rounded-xl bg-linear-to-r from-violet-500 to-fuchsia-500 px-4 py-3 text-center text-sm font-semibold text-white transition hover:scale-[1.02]">Get Started</Link>
               </div>
             </div>
           ) : null}
