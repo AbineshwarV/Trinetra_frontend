@@ -23,10 +23,10 @@ export function AnalyzerHeader() {
   }, [isDark]);
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-(--app-shell-border) bg-(--app-shell-panel) px-2 backdrop-blur-xl sm:px-4 lg:px-6">
+    <header className="flex flex-col gap-2 border-b border-(--app-shell-border) bg-(--app-shell-panel) px-2 py-2 backdrop-blur-xl sm:flex-row sm:items-center sm:px-4 lg:px-6">
       <SidebarTrigger className="-ml-1" />
 
-      <div className="ml-auto min-w-0 flex items-center gap-2">
+      <div className="ml-auto min-w-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
         <button
           type="button"
           onClick={() => setIsDark((current) => !current)}

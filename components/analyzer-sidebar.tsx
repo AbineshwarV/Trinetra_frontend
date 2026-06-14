@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
 import { useSearchParams } from "next/navigation";
@@ -167,12 +168,9 @@ export function AnalyzerSidebar() {
               className="data-[slot=sidebar-menu-button]:p-1.5! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:justify-center"
             >
               <Link href="/analyzer">
-                <div className="flex aspect-square size-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-2xl leading-none text-white shadow-[0_10px_30px_rgba(139,92,246,0.18)] group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:text-xl">
-                  👁
-                </div>
+                <Image src="/logo.png" alt="Trinetra" width={32} height={32} className="rounded-lg object-cover group-data-[collapsible=icon]:size-7" style={{ width: "auto", height: "auto" }} />
                 <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold">TRiNETRA</span>
-                  <span className="truncate text-xs text-sidebar-foreground/70">Deepfake Analyzer</span>
                 </div>
               </Link>
             </SidebarMenuButton>

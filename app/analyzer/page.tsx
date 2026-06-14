@@ -4,13 +4,15 @@
 import type { ChangeEvent, DragEvent, FormEvent } from "react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, CloudUpload, Clock3, Eye, Globe, Layers, LockKeyhole, Loader2, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, CloudUpload, Clock3, Eye, Globe, Layers, LockKeyhole, Loader2, MessageCircle, ShieldCheck, Sparkles, AlertCircle } from "lucide-react";
 import { AnalyzerResultDashboard } from "@/components/analyzer-result-dashboard";
 import { apiFetch } from "@/lib/api";
 
 type AnalysisStage = "idle" | "preparing" | "queued" | "analyzing" | "finalizing" | "complete" | "error";
 
 type BackendJobStatus = "queued" | "running" | "completed" | "failed";
+
+type AgentState = "queued" | "running" | "completed";
 
 interface JobResponse {
   job_id?: string;
@@ -22,6 +24,46 @@ interface JobResponse {
   analysis_id?: string;
   error?: string;
 }
+
+interface AgentConfig {
+  name: string;
+  icon: string;
+  messages: string[];
+}
+
+const AGENT_CONFIGS: Record<string, AgentConfig> = {
+  audio: {
+    name: "Audio Intelligence Agent",
+    icon: "🎵",
+    messages: [
+      "Analyzing voice patterns...",
+      "Extracting audio features...",
+      "Detecting vocal inconsistencies...",
+      "Running acoustic analysis...",
+    ],
+  },
+  text: {
+    name: "Text Intelligence Agent",
+    icon: "📝",
+    messages: [
+      "Analyzing content...",
+      "Extracting entities...",
+      "Understanding sentiment...",
+      "Generating insights...",
+    ],
+  },
+  video: {
+    name: "Video Intelligence Agent",
+    icon: "🎬",
+    messages: [
+      "Analyzing visual content...",
+      "Extracting key frames...",
+      "Detecting patterns...",
+      "Running AI inference...",
+      "Generating insights...",
+    ],
+  },
+};
 
 const RUNNING_PROGRESS_CAP = 94;
 const ACCENT_GRADIENT = "var(--app-shell-highlight-gradient)";
@@ -43,6 +85,13 @@ const getMilestoneStatus = (progress: number): string => {
   return "Preparing analysis...";
 };
 
+const getTimelineDurations = () => [
+  3000 + Math.floor(Math.random() * 300),
+  5000 + Math.floor(Math.random() * 400),
+  3000 + Math.floor(Math.random() * 300),
+  3000 + Math.floor(Math.random() * 300),
+];
+
 const ANALYSIS_STEPS: Array<{
   key: AnalysisStage;
   title: string;
@@ -51,26 +100,26 @@ const ANALYSIS_STEPS: Array<{
 }> = [
   {
     key: "preparing",
-    title: "Preparing input",
-    description: "Validating media and creating your analysis request.",
+    title: "Preparing request",
+    description: "Validating your submission and setting up processing.",
     icon: Clock3,
   },
   {
     key: "queued",
-    title: "Queued for scan",
-    description: "Your request has been accepted and queued by the analyzer.",
+    title: "Queued for processing",
+    description: "Your request is in line and will begin shortly.",
     icon: Layers,
   },
   {
     key: "analyzing",
-    title: "Analyzing signals",
-    description: "Checking video, audio, and text artifacts in real time.",
+    title: "Analyzing content",
+    description: "Running the analysis pipeline in the background.",
     icon: MessageCircle,
   },
   {
     key: "finalizing",
-    title: "Fusing verdict",
-    description: "Combining model outputs into a trusted risk score.",
+    title: "Finalizing results",
+    description: "Wrapping up the timeline and preparing output.",
     icon: ShieldCheck,
   },
 ];
@@ -143,13 +192,20 @@ export default function AnalyzerPage() {
   const [stage, setStage] = useState<AnalysisStage>("idle");
   const [jobId, setJobId] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
+  const [timelineStep, setTimelineStep] = useState(0);
+  const [timelineDurations, setTimelineDurations] = useState<number[]>(getTimelineDurations());
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
   const [existingPublic, setExistingPublic] = useState<{ analysis_id: string; created_at?: string } | null>(null);
+  const [analysisStartTime, setAnalysisStartTime] = useState<number | null>(null);
+  const [estimatedTimeRemaining, setEstimatedTimeRemaining] = useState<number | null>(null);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [pipelinePhase, setPipelinePhase] = useState<"audio" | "text" | "video" | "done">("audio");
+  const [backendInputType, setBackendInputType] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const jobEventsRef = useRef<EventSource | null>(null);
   const backendStatusRef = useRef<string>("");
-
+  const progressHistoryRef = useRef<Array<{ time: number; progress: number }>>([]);
 
 
   // Handle file selection
@@ -231,24 +287,66 @@ export default function AnalyzerPage() {
           ? Math.max(progressPercent, Math.min(job.progress_percent, RUNNING_PROGRESS_CAP))
           : job.progress_percent;
       setProgressPercent(nextValue);
+      advancePipelinePhase(nextValue);
+
+      // Calculate estimated time remaining
+      if (backendStatusRef.current === "running" && analysisStartTime && nextValue > 0 && nextValue < 100) {
+        const currentTime = Date.now();
+        const elapsedMs = currentTime - analysisStartTime;
+        const progressHistogram = progressHistoryRef.current;
+        progressHistogram.push({ time: currentTime, progress: nextValue });
+
+        // Keep only last 10 data points
+        if (progressHistogram.length > 10) {
+          progressHistogram.shift();
+        }
+
+        if (progressHistogram.length >= 2) {
+          const first = progressHistogram[0];
+          const last = progressHistogram[progressHistogram.length - 1];
+          const timeDiff = last.time - first.time;
+          const progressDiff = last.progress - first.progress;
+
+          if (timeDiff > 0 && progressDiff > 0) {
+            const ratePerMs = progressDiff / timeDiff;
+            const remainingProgress = 100 - nextValue;
+            const estimatedRemainingMs = Math.ceil(remainingProgress / ratePerMs);
+            setEstimatedTimeRemaining(Math.max(0, estimatedRemainingMs));
+          }
+        }
+      }
     } else {
       setProgressPercent(getProgressPercent(nextStage));
     }
 
     if (job.status === "completed" || job.status === "done") {
+      // Stop listening for further SSE messages
       closeJobEvents();
+
+      // Fetch the final analysis in the background but delay showing it
+      // so the multi-agent pipeline can render the final "completed" state.
+      let analysisResult: any = null;
       if (job.analysis_id) {
         const resultResponse = await apiFetch(`/api/analysis-results/${encodeURIComponent(job.analysis_id)}`, { cache: "no-store" });
         if (!resultResponse.ok) {
           throw new Error("Failed to load final analysis result.");
         }
-        const analysisResult = await resultResponse.json();
-        setResult(analysisResult);
+        analysisResult = await resultResponse.json();
       } else {
-        setResult(job);
+        analysisResult = job;
       }
-      setStage("complete");
-      window.dispatchEvent(new Event("recents:update"));
+
+      // Show finalizing state before the full result is revealed.
+      setStage("finalizing");
+      setEstimatedTimeRemaining(null);
+
+      setTimeout(() => {
+        setResult(analysisResult);
+        setStage("complete");
+        setProgressPercent(100);
+        window.dispatchEvent(new Event("recents:update"));
+      }, 3000);
+
       return;
     }
 
@@ -355,6 +453,8 @@ export default function AnalyzerPage() {
 
         const uploads = await uploadResponse.json();
         uploadId = uploads?.[0]?.id;
+        // If the backend provides a detected input type on upload, honor it
+        setBackendInputType(uploads?.[0]?.input_type || uploads?.[0]?.detected_input_type || null);
       } else if (input.trim()) {
         const trimmedInput = input.trim();
         const inputResponse = await apiFetch("/api/inputs", {
@@ -374,6 +474,8 @@ export default function AnalyzerPage() {
 
         const upload = await inputResponse.json();
         uploadId = upload?.id;
+        // If the backend returns a detected input type for the pasted input, use it
+        setBackendInputType(upload?.input_type || upload?.detected_input_type || null);
       } else {
         setLoading(false);
         setStage("idle");
@@ -384,6 +486,9 @@ export default function AnalyzerPage() {
         throw new Error("Upload ID missing.");
       }
 
+      setPipelinePhase("audio");
+      setTimelineStep(0);
+      setTimelineDurations(getTimelineDurations());
       setStage("queued");
       const asyncResponse = await apiFetch(`/api/analyze/${uploadId}/async`, {
         method: "POST",
@@ -391,6 +496,8 @@ export default function AnalyzerPage() {
 
       if (asyncResponse.ok) {
         const payload: JobResponse = await asyncResponse.json();
+        // Prefer backend-detected input type when available
+        setBackendInputType((payload as any)?.input_type || (payload as any)?.detected_input_type || null);
         const newJobId = payload?.job_id || payload?.id || payload?.jobId || null;
         if (!newJobId) {
           throw new Error("Missing async job id.");
@@ -398,7 +505,11 @@ export default function AnalyzerPage() {
 
         setJobId(newJobId);
         setStatusMessage(payload.status_message ?? null);
-        setProgressPercent(typeof payload.progress_percent === "number" ? payload.progress_percent : getProgressPercent(mapBackendStatus(payload.status, payload.progress_percent)));
+        setProgressPercent(
+          typeof payload.progress_percent === "number"
+            ? payload.progress_percent
+            : getProgressPercent(mapBackendStatus(payload.status, payload.progress_percent))
+        );
         setStage(mapBackendStatus(payload.status, payload.progress_percent));
 
         await subscribeToJobStatus(newJobId);
@@ -415,10 +526,15 @@ export default function AnalyzerPage() {
       }
 
       const data = await res.json();
-      setResult(data);
-      setStage("complete");
-      setProgressPercent(100);
-      window.dispatchEvent(new Event("recents:update"));
+      // Capture backend-detected input type if available
+      setBackendInputType((data as any)?.input_type || (data as any)?.detected_input_type || null);
+      setStage("finalizing");
+      setTimeout(() => {
+        setResult(data);
+        setStage("complete");
+        setProgressPercent(100);
+        window.dispatchEvent(new Event("recents:update"));
+      }, 3000);
     } catch (err) {
       setStage("error");
       setError(err instanceof Error ? err.message : "Failed to analyze input.");
@@ -428,28 +544,107 @@ export default function AnalyzerPage() {
   };
 
   const dashboard = normalizeDashboardResult(result);
-  const visualStage: AnalysisStage = stage === "analyzing" && progressPercent >= 80 ? "finalizing" : stage;
+  const visualStage: AnalysisStage = stage;
   const computedStatusMessage = stage === "error"
-    ? (statusMessage || "Analysis failed.")
+    ? (statusMessage || "Processing failed.")
     : stage === "complete"
-    ? "Analysis completed successfully."
-    : getMilestoneStatus(progressPercent);
+    ? "Result ready."
+    : "Processing in progress...";
+
+  // Determine input type and agents (prefer backend detection when available)
+  const inferredType = file ? (file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "text") : input.trim() ? "text" : null;
+  const inputType = backendInputType ?? inferredType;
+  const agentKeys = inputType === "video" ? ["audio", "text", "video"] : inputType === "audio" ? ["audio", "text"] : ["text"];
+
+  const advancePipelinePhase = (currentProgress: number) => {
+    // Use more balanced thresholds so agents visibly transition during analysis.
+    // For video inputs: audio -> text -> video (approx 0-33%, 33-66%, 66-100%).
+    if (inputType === "video") {
+      if (pipelinePhase === "audio" && currentProgress >= 33) {
+        setPipelinePhase("text");
+      } else if (pipelinePhase === "text" && currentProgress >= 66) {
+        setPipelinePhase("video");
+      }
+    }
+
+    // For audio inputs: audio -> text (approx 0-50%, 50-100%).
+    if (inputType === "audio") {
+      if (pipelinePhase === "audio" && currentProgress >= 50) {
+        setPipelinePhase("text");
+      }
+    }
+  };
+
+  const getAgentState = (agentKey: string, _currentProgress?: number): AgentState => {
+    if (stage === "complete") return "completed";
+    if (stage === "error") return "queued";
+    if (stage === "idle") return "queued";
+
+    if (inputType === "video") {
+      if (agentKey === "audio") {
+        return pipelinePhase === "audio" ? "running" : "completed";
+      }
+      if (agentKey === "text") {
+        if (pipelinePhase === "audio") return "queued";
+        if (pipelinePhase === "text") return "running";
+        return "completed";
+      }
+      if (agentKey === "video") {
+        return pipelinePhase === "video" ? "running" : "queued";
+      }
+    }
+
+    if (inputType === "audio") {
+      if (agentKey === "audio") {
+        return pipelinePhase === "audio" ? "running" : "completed";
+      }
+      if (agentKey === "text") {
+        return pipelinePhase === "audio" ? "queued" : "running";
+      }
+    }
+
+    if (inputType === "text") {
+      if (agentKey === "text") return "running";
+    }
+
+    return "queued";
+  };
 
   useEffect(() => {
-    if (!jobId) return;
-    if (stage === "complete" || stage === "error") return;
-    if (backendStatusRef.current !== "running") return;
+    if (stage === "idle" || stage === "complete" || stage === "error" || stage === "finalizing") return;
+    if (timelineStep >= timelineDurations.length - 1) return;
 
-    const timer = setInterval(() => {
+    // Hold at Analyzing content (step 2) until result is ready
+    if (timelineStep === 2 && !result && stage === "analyzing") {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setTimelineStep((current) => Math.min(current + 1, timelineDurations.length - 1));
       setProgressPercent((current) => {
-        if (current >= RUNNING_PROGRESS_CAP) return current;
-        const increment = current < 35 ? 3 : current < 70 ? 2 : 1;
-        return Math.min(current + increment, RUNNING_PROGRESS_CAP);
+        const nextPercent = current + 12 + Math.floor(Math.random() * 12);
+        return Math.min(nextPercent, 94);
       });
-    }, 1200);
+    }, timelineDurations[timelineStep]);
 
+    return () => window.clearTimeout(timer);
+  }, [stage, timelineStep, timelineDurations, result]);
+
+  // Advance timeline to step 3 (Finalizing) when result is ready
+  useEffect(() => {
+    if (stage === "finalizing" && timelineStep < 3) {
+      setTimelineStep(3);
+    }
+  }, [stage, timelineStep]);
+
+  // Rotate through agent messages
+  useEffect(() => {
+    if (stage !== "analyzing" && stage !== "preparing" && stage !== "queued" && stage !== "finalizing") return;
+    const timer = setInterval(() => {
+      setMessageIndex((prev) => prev + 1);
+    }, 2800);
     return () => clearInterval(timer);
-  }, [jobId, stage]);
+  }, [stage]);
 
   useEffect(() => {
     return () => {
@@ -530,102 +725,173 @@ export default function AnalyzerPage() {
         <section className="rounded-[1.75rem] border border-(--app-shell-card-border) bg-[rgba(10,20,42,0.62)] p-5 shadow-[0_18px_44px_rgba(2,8,23,0.24)] backdrop-blur-xl sm:p-6 lg:p-8">
           {/* Show input if idle and no result */}
           {stage === "idle" && !result && (
-            <form onSubmit={handleAnalyze}>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
-                    <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
-                  </div>
-                  <div
-                    className="hidden rounded-full border border-sky-300/16 px-3 py-1 text-xs text-slate-200 sm:block"
-                    style={{ backgroundImage: ACCENT_SOFT }}
-                  >
-                    Supports video, audio, and text
-                  </div>
+            <form onSubmit={handleAnalyze} className="space-y-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-white sm:text-2xl">Upload media</h2>
+                  <p className="mt-2 text-sm text-slate-400">Drag and drop, or select a file to begin the review.</p>
                 </div>
-              <div
-                className="mt-6 rounded-[1.5rem] border border-dashed border-cyan-300/20 bg-[linear-gradient(180deg,rgba(11,22,46,0.38),rgba(8,17,36,0.28))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm sm:p-8"
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onClick={() => {
-                  if (file || input.trim()) return;
-                  handleSelectFiles();
-                }}
-                role="button"
-                tabIndex={0}
-                aria-label="Upload a file"
-                style={{ cursor: "pointer" }}
-              >
                 <div
-                  className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-sky-300/18 text-cyan-100 shadow-[0_14px_32px_rgba(47,111,203,0.14)]"
-                  style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
+                  className="hidden rounded-full border border-sky-300/16 px-3 py-1 text-xs text-slate-200 sm:block"
+                  style={{ backgroundImage: ACCENT_SOFT }}
                 >
-                  <CloudUpload className="h-8 w-8" />
+                  Supports video, audio, and text
                 </div>
-                <div className="mt-4 text-center">
-                  <p className="text-lg font-semibold text-white sm:text-xl">Drop files here or click to upload</p>
-                  <p className="mt-2 text-sm text-slate-400">Recommended for clips under 5 minutes and files up to 100MB.</p>
-                </div>
-                <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="video/*,audio/*,text/*"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    disabled={!!input}
-                  />
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      handleSelectFiles();
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-300/16 px-5 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:brightness-110 disabled:opacity-60"
+              </div>
+              <div className="grid gap-6 items-start lg:grid-cols-[1.6fr_1fr]">
+                <div
+                  className="rounded-[1.5rem] border border-dashed border-cyan-300/20 bg-[linear-gradient(180deg,rgba(11,22,46,0.38),rgba(8,17,36,0.28))] p-6 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm sm:p-8"
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onClick={() => {
+                    if (file || input.trim()) return;
+                    handleSelectFiles();
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Upload a file"
+                  style={{ cursor: "pointer" }}
+                >
+                  <div
+                    className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-sky-300/18 text-cyan-100 shadow-[0_14px_32px_rgba(47,111,203,0.14)]"
                     style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
-                    disabled={!!input}
                   >
-                    Select files
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                  {file ? (
-                    <div
-                      className="flex flex-wrap items-center justify-center gap-2"
-                      onClick={(event) => event.stopPropagation()}
+                    <CloudUpload className="h-8 w-8" />
+                  </div>
+                  <div className="mt-4 text-center">
+                    <p className="text-lg font-semibold text-white sm:text-xl">Drop files here or click to upload</p>
+                    <p className="mt-2 text-sm text-slate-400">Recommended for clips under 5 minutes and files up to 100MB.</p>
+                  </div>
+                  <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="video/*,audio/*,text/*"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      disabled={!!input}
+                    />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleSelectFiles();
+                      }}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-300/16 px-5 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:brightness-110 disabled:opacity-60"
+                      style={{ backgroundImage: "var(--app-shell-highlight-soft)" }}
+                      disabled={!!input}
                     >
-                      <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
-                        {file.name}
-                      </span>
-                      <button
-                        type="button"
-                        className="text-xs text-slate-300 underline underline-offset-2 hover:text-white"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setFile(null);
-                        }}
+                      Select files
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                    {file ? (
+                      <div
+                        className="flex flex-wrap items-center justify-center gap-2"
+                        onClick={(event) => event.stopPropagation()}
                       >
-                        Clear
-                      </button>
+                        <span className="rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+                          {file.name}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs text-slate-300 underline underline-offset-2 hover:text-white"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setFile(null);
+                          }}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="my-6 flex items-center gap-4">
+                    <div className="h-px flex-1 bg-white/10" />
+                    <span className="text-xs uppercase tracking-widest text-slate-400">or</span>
+                    <div className="h-px flex-1 bg-white/10" />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={handleInputChange}
+                      onFocus={handleInputFocus}
+                      onClick={(event) => event.stopPropagation()}
+                      onMouseDown={(event) => event.stopPropagation()}
+                      placeholder="Paste a URL or enter text..."
+                      className="w-full rounded-xl border border-cyan-300/35 bg-[rgba(4,10,24,0.46)] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-300/50"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-indigo-300/25 bg-slate-800/40 p-8">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-300/30 bg-indigo-400/10">
+                      <Eye className="h-5 w-5 text-indigo-300" />
                     </div>
-                  ) : null}
-                </div>
-                <div className="my-6 flex items-center gap-4">
-                  <div className="h-px flex-1 bg-white/10" />
-                  <span className="text-xs uppercase tracking-widest text-slate-400">or</span>
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-                {/* URL / Text Input */}
-                <div className="flex flex-col gap-3">
-                  <input
-                    type="text"
-                    value={input}
-                    onChange={handleInputChange}
-                    onFocus={handleInputFocus}
-                    onClick={(event) => event.stopPropagation()}
-                    onMouseDown={(event) => event.stopPropagation()}
-                    placeholder="Paste a URL or enter text..."
-                    className="w-full rounded-xl border border-cyan-300/35 bg-[rgba(4,10,24,0.46)] px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition focus:border-cyan-200 focus:ring-2 focus:ring-cyan-300/50"
-                  />
+                    <div>
+                      <p className="text-lg font-semibold text-white">Visibility</p>
+                      <p className="text-sm text-slate-400">Choose who can view this analysis result.</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setVisibility("private")}
+                      className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
+                        visibility === "private"
+                          ? "border-indigo-400/50 bg-slate-900/50"
+                          : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "private" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
+                          {visibility === "private" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800/50">
+                          <LockKeyhole className="h-5 w-5 text-slate-300" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">Private</p>
+                          <p className="text-xs text-slate-400">Only you can view this analysis.</p>
+                        </div>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setVisibility("public")}
+                      className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
+                        visibility === "public"
+                          ? "border-indigo-400/50 bg-slate-900/50"
+                          : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "public" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
+                          {visibility === "public" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
+                        </div>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-400/15">
+                          <Globe className="h-5 w-5 text-indigo-300" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-white">Public</p>
+                            <span className="rounded-full bg-indigo-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-100">Recommended</span>
+                          </div>
+                          <p className="text-xs text-slate-400">Make this analysis result visible to all users.</p>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="mt-6 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3">
+                    <div className="flex items-start gap-2">
+                      <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+                      <p className="text-xs text-emerald-100">Once set to public, anyone with the link can view the analysis result.</p>
+                    </div>
+                  </div>
                 </div>
               </div>
               <button
@@ -654,105 +920,93 @@ export default function AnalyzerPage() {
             </form>
           )}
 
-          {stage === "idle" && !result ? (
-            <div className="rounded-2xl border border-indigo-300/25 bg-slate-800/40 p-8">
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-300/30 bg-indigo-400/10">
-                  <Eye className="h-5 w-5 text-indigo-300" />
+{stage !== "idle" && !result && (
+            <div className="flex min-h-90 flex-col items-center justify-center rounded-2xl border border-(--app-shell-border) bg-(--app-shell-panel) px-6 py-10">
+              {stage === "error" ? (
+                <div className="flex flex-col items-center text-center">
+                  <AlertCircle className="h-12 w-12 text-red-400" />
+                  <h2 className="mt-4 text-xl font-semibold text-white">Processing failed</h2>
+                  <p className="mt-2 text-sm text-slate-300">{statusMessage || "Something went wrong during processing."}</p>
+                  <button
+                    onClick={() => {
+                      setStage("idle");
+                      setResult(null);
+                      setJobId(null);
+                      setProgressPercent(0);
+                      setStatusMessage(null);
+                      setMessageIndex(0);
+                      backendStatusRef.current = "";
+                      closeJobEvents();
+                    }}
+                    className="mt-6 rounded-lg border border-(--app-shell-border) bg-(--app-shell-panel) px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-(--app-shell-panel-2)"
+                  >
+                    Reset
+                  </button>
                 </div>
-                <div>
-                  <p className="text-lg font-semibold text-white">Visibility</p>
-                  <p className="text-sm text-slate-400">Choose who can view this analysis result.</p>
-                </div>
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setVisibility("private")}
-                  className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
-                    visibility === "private"
-                      ? "border-indigo-400/50 bg-slate-900/50"
-                      : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "private" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
-                      {visibility === "private" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
-                    </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-600 bg-slate-800/50">
-                      <LockKeyhole className="h-5 w-5 text-slate-300" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">Private</p>
-                      <p className="text-xs text-slate-400">Only you can view this analysis.</p>
-                    </div>
+              ) : (
+                <>
+                  <div className="flex flex-col items-center text-center">
+                    <h2 className="text-xl font-semibold text-white">Processing...</h2>
+                    <p className="mt-2 text-sm text-slate-300">{file?.name ? `${file.name} is being processed.` : "Your input is being processed."}</p>
                   </div>
-                </button>
 
-                <button
-                  type="button"
-                  onClick={() => setVisibility("public")}
-                  className={`w-full rounded-2xl border-2 px-4 py-4 text-left transition ${
-                    visibility === "public"
-                      ? "border-indigo-400/50 bg-slate-900/50"
-                      : "border-slate-700/50 bg-slate-900/20 hover:border-slate-600/50"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-full border-2 ${visibility === "public" ? "border-indigo-400 bg-indigo-400/20" : "border-slate-600"}`}>
-                      {visibility === "public" && <div className="h-2 w-2 rounded-full bg-indigo-300" />}
+                  <div className="mt-10 w-full max-w-5xl">
+                    <div className="relative grid gap-6 sm:grid-cols-4">
+                      {ANALYSIS_STEPS.map((step, index) => {
+                        const currentIndex = Math.min(timelineStep, ANALYSIS_STEPS.length - 1);
+                        const isActive = index === currentIndex;
+                        const isCompleted = index < currentIndex;
+                        const isFuture = index > currentIndex;
+                        const stepStatus = isCompleted ? "Done" : isActive ? "Working" : "Waiting";
+
+                        return (
+                          <div key={step.key} className="relative rounded-[1.75rem] border p-5 text-left shadow-[0_24px_80px_rgba(0,0,0,0.22)] transition duration-300 hover:border-slate-500 sm:hover:-translate-y-0.5">
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 text-white transition ${
+                                  isCompleted
+                                    ? "border-emerald-400 bg-emerald-400/10 text-emerald-300"
+                                    : isActive
+                                    ? "border-cyan-400 bg-cyan-400/15 text-cyan-300"
+                                    : "border-slate-700 bg-slate-950 text-slate-500"
+                                }`}
+                              >
+                                <step.icon className="h-6 w-6" />
+                                {isCompleted && (
+                                  <span className="absolute -right-2 -bottom-2 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-400 text-[0.65rem] font-bold text-slate-950">
+                                    ✓
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-white">{step.title}</p>
+                                <p className="mt-1 text-xs text-slate-400">{stepStatus}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-400/15">
-                      <Globe className="h-5 w-5 text-indigo-300" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-semibold text-white">Public</p>
-                        <span className="rounded-full bg-indigo-500/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-indigo-100">Recommended</span>
-                      </div>
-                      <p className="text-xs text-slate-400">Make this analysis result visible to all users.</p>
-                    </div>
+
                   </div>
-                </button>
-              </div>
 
-              <div className="mt-6 rounded-xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3">
-                <div className="flex items-start gap-2">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
-                  <p className="text-xs text-emerald-100">Once set to public, anyone with the link can view the analysis result.</p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          {/* Simple loader while processing */}
-          {stage !== "idle" && !result && (
-            <div className="flex min-h-75 flex-col items-center justify-center rounded-2xl border border-(--app-shell-border) bg-(--app-shell-panel) px-6 py-10 text-center">
-              <Loader2 className="h-10 w-10 animate-spin text-cyan-200" />
-              <h2 className="mt-4 text-xl font-semibold text-white">
-                {stage === "error" ? "Analysis Failed" : "Processing..."}
-              </h2>
-              <p className="mt-2 text-sm text-slate-300">
-                {stage === "error"
-                  ? (statusMessage || "Something went wrong during analysis.")
-                  : (statusMessage || "Please wait while we process your input.")}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">{file?.name || "Your media"}</p>
-              <button
-                onClick={() => {
-                  setStage("idle");
-                  setResult(null);
-                  setJobId(null);
-                  setProgressPercent(0);
-                  setStatusMessage(null);
-                  backendStatusRef.current = "";
-                  closeJobEvents();
-                }}
-                className="mt-6 rounded-lg border border-(--app-shell-border) bg-(--app-shell-panel) px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-(--app-shell-panel-2)"
-              >
-                Reset
-              </button>
+                  <button
+                    onClick={() => {
+                      setStage("idle");
+                      setResult(null);
+                      setJobId(null);
+                      setProgressPercent(0);
+                      setStatusMessage(null);
+                      setMessageIndex(0);
+                      backendStatusRef.current = "";
+                      closeJobEvents();
+                    }}
+                    className="mt-6 rounded-lg border border-(--app-shell-border) bg-(--app-shell-panel) px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-(--app-shell-panel-2)"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
             </div>
           )}
 
