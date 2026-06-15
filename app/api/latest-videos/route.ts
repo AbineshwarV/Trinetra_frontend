@@ -12,9 +12,6 @@ type LatestVideo = {
 
 const CHANNEL_ID = "UC7apMBG0ZHBQWyFvLz35bVA";
 const FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${CHANNEL_ID}`;
-const CACHE_TTL_MS = 60 * 60 * 1000;
-
-let cachedPayload: { expiresAt: number; data: LatestVideo[] } | null = null;
 
 function parsePublishedDate(value: string | null): string | null {
   if (!value) return null;
@@ -55,15 +52,6 @@ function parseFeed(xml: string): LatestVideo[] {
 }
 
 export async function GET() {
-  const now = Date.now();
-  if (cachedPayload && cachedPayload.expiresAt > now) {
-    return NextResponse.json(cachedPayload.data, {
-      headers: {
-        "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=600",
-      },
-    });
-  }
-
   try {
     const response = await fetch(FEED_URL, {
       headers: {
@@ -79,7 +67,6 @@ export async function GET() {
 
     const xml = await response.text();
     const data = parseFeed(xml);
-    cachedPayload = { expiresAt: now + CACHE_TTL_MS, data };
 
     return NextResponse.json(data, {
       headers: {

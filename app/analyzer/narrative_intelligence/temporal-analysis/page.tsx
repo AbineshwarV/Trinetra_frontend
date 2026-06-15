@@ -331,7 +331,6 @@ export default async function NarrativeTemporalAnalysisPage() {
     ["narrative_momentum_timeline", "Narrative Momentum Timeline"],
     ["global_migration_timeline", "Global Narrative Spread / World Trend Migration Timeline"],
     ["temporal_risk_escalation", "Temporal Risk Escalation"],
-    ["forecast_outcome_comparison", "Forecast Outcome Comparison"],
     ["prediction_confidence_distribution", "Prediction Confidence Distribution"],
   ];
 
@@ -542,47 +541,6 @@ export default async function NarrativeTemporalAnalysisPage() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-[rgba(7,15,34,0.55)] p-2 sm:p-3">
-            <h3 className="mb-2 flex items-center text-sm font-medium text-white">
-              <Gauge className={sectionIconClass} />
-              Forecast Validation & Accuracy
-            </h3>
-            <div className="w-full min-w-0 max-w-full overflow-auto max-h-56 rounded-2xl border border-white/10 bg-[rgba(7,15,34,0.55)] shadow-[0_12px_32px_rgba(2,8,23,0.28)] [scrollbar-width:thin] [scrollbar-color:rgba(148,163,184,0.45)_rgba(15,23,42,0.35)]">
-              {(() => {
-                const acc = temporal?.forecast_validation_accuracy || {};
-                return (
-                  <table className="min-w-205 w-full text-left text-sm text-slate-200">
-                    <tbody>
-                      <tr className="border-t border-white/10 align-top">
-                        <th className="px-3 py-2 font-semibold text-white">Total Predictions</th>
-                        <td className="px-3 py-2 score">{acc.total_predictions ?? 0}</td>
-                        <th className="px-3 py-2 font-semibold text-white">Correct Predictions</th>
-                        <td className="px-3 py-2 score">{acc.correct_predictions ?? 0}</td>
-                      </tr>
-                      <tr className="border-t border-white/10 align-top">
-                        <th className="px-3 py-2 font-semibold text-white">Forecast Accuracy %</th>
-                        <td className="px-3 py-2 score">{fmt(num(acc.forecast_accuracy_percent))}</td>
-                        <th className="px-3 py-2 font-semibold text-white">Growth Accuracy %</th>
-                        <td className="px-3 py-2 score">{fmt(num(acc.growth_accuracy_percent))}</td>
-                      </tr>
-                      <tr className="border-t border-white/10 align-top">
-                        <th className="px-3 py-2 font-semibold text-white">Spike Accuracy %</th>
-                        <td className="px-3 py-2 score">{fmt(num(acc.spike_accuracy_percent))}</td>
-                        <th className="px-3 py-2 font-semibold text-white">Risk Escalation Accuracy %</th>
-                        <td className="px-3 py-2 score">{fmt(num(acc.risk_escalation_accuracy_percent))}</td>
-                      </tr>
-                      <tr className="border-t border-white/10 align-top">
-                        <th className="px-3 py-2 font-semibold text-white">Peak Prediction Accuracy %</th>
-                        <td className="px-3 py-2 score">{fmt(num(acc.peak_prediction_accuracy_percent))}</td>
-                        <th className="px-3 py-2 font-semibold text-white" aria-hidden="true"></th>
-                        <td className="px-3 py-2 score" aria-hidden="true"></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                );
-              })()}
-            </div>
-          </div>
         </div>
 
           <div className="mt-4 rounded-2xl border border-white/10 bg-[rgba(7,15,34,0.55)] p-2 sm:p-3">
