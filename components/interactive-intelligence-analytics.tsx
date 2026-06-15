@@ -51,11 +51,11 @@ export default function InteractiveIntelligenceAnalytics({ payload }: Props) {
 
   useEffect(() => {
     let mounted = true;
-    const existing = document.querySelector('script[data-trinetra-plotly="true"]');
+    const target = competitionTimelineRef.current;
+    if (!target) return;
 
     function render() {
       const plotly = (window as Window & { Plotly?: any }).Plotly;
-      const target = competitionTimelineRef.current;
       if (!plotly || !payload || !target) return;
 
       plotly.purge(target);
@@ -78,26 +78,52 @@ export default function InteractiveIntelligenceAnalytics({ payload }: Props) {
         target,
         traces,
         {
-          title: { text: "Narrative Competition Timeline", x: 0.02, xanchor: "left", font: { size: 15, color: "#e2e8f0" } },
-          paper_bgcolor: "#0b1220",
-          plot_bgcolor: "#0b1220",
+          title: { text: "Narrative Competition Timeline", x: 0.02, xanchor: "left", font: { size: 15, color: "#0f172a" } },
+          paper_bgcolor: "#ffffff",
+          plot_bgcolor: "#ffffff",
           height: 480,
           autosize: true,
           margin: { l: 62, r: 24, t: 52, b: 92 },
-          font: { family: "Segoe UI, system-ui, sans-serif", size: 11, color: "#cbd5e1" },
-          hoverlabel: { bgcolor: "#0f172a", bordercolor: "#334155", font: { color: "#ffffff" } },
-          xaxis: { title: "Scheduler timestamps", type: "date", rangeslider: { visible: true, thickness: 0.08 }, gridcolor: "rgba(148,163,184,0.2)", color: "#cbd5e1" },
-          yaxis: { title: "Composite Narrative Dynamics Signal", gridcolor: "rgba(148,163,184,0.2)", color: "#cbd5e1" },
-          legend: { orientation: "h", y: -0.25, x: 0, font: { size: 10 } },
+          font: { family: "Segoe UI, system-ui, sans-serif", size: 11, color: "#0f172a" },
+          hoverlabel: { bgcolor: "#ffffff", bordercolor: "#d1d5db", font: { color: "#0f172a" } },
+          xaxis: {
+            title: "Scheduler timestamps",
+            type: "date",
+            rangeslider: { visible: true, thickness: 0.08 },
+            gridcolor: "rgba(148,163,184,0.2)",
+            color: "#0f172a",
+          },
+          yaxis: {
+            title: "Composite Narrative Dynamics Signal",
+            gridcolor: "rgba(148,163,184,0.2)",
+            color: "#0f172a",
+          },
+          legend: { orientation: "h", y: -0.25, x: 0, font: { size: 10, color: "#0f172a" } },
           dragmode: "pan",
         },
         { responsive: true, displaylogo: false, scrollZoom: true, modeBarButtonsToRemove: ["lasso2d", "select2d"] }
       );
     }
 
+    const existing = document.querySelector('script[data-trinetra-plotly="true"]') as HTMLScriptElement | null;
+    const scheduleRender = () => {
+      if (!mounted) return;
+      const plotly = (window as Window & { Plotly?: any }).Plotly;
+      if (plotly) {
+        render();
+      }
+    };
+
     if (existing) {
-      render();
-      return;
+      if ((window as Window & { Plotly?: any }).Plotly) {
+        scheduleRender();
+      } else {
+        existing.addEventListener("load", scheduleRender, { once: true });
+      }
+
+      return () => {
+        mounted = false;
+      };
     }
 
     const script = document.createElement("script");
@@ -106,12 +132,14 @@ export default function InteractiveIntelligenceAnalytics({ payload }: Props) {
     script.dataset.trinetraPlotly = "true";
     script.onload = () => {
       if (!mounted) return;
-      render();
+      scheduleRender();
     };
     document.body.appendChild(script);
 
     return () => {
       mounted = false;
+      script.onload = null;
+      if (existing) existing.removeEventListener("load", scheduleRender);
     };
   }, [payload]);
 
@@ -135,7 +163,7 @@ export default function InteractiveIntelligenceAnalytics({ payload }: Props) {
             <ChartColumnIncreasing className="mr-2 h-4 w-4 text-sky-300" />
             Narrative Competition Timeline
           </h3>
-          <div className="w-full overflow-hidden rounded-xl bg-[#0b1220]">
+          <div className="w-full overflow-hidden rounded-xl bg-white">
             <div ref={competitionTimelineRef} className="h-120 w-full" />
           </div>
         </div>

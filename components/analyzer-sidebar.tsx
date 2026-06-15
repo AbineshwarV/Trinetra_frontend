@@ -39,15 +39,15 @@ import {
 } from "./ui/sidebar";
 
 const sidebarTheme = {
-  "--sidebar": "#0b1324",
-  "--sidebar-background": "#0b1324",
+  "--sidebar": "#12213a",
+  "--sidebar-background": "#12213a",
   "--sidebar-foreground": "#e2e8f0",
   "--sidebar-primary": "#8b5cf6",
   "--sidebar-primary-foreground": "#ffffff",
-  "--sidebar-accent": "#16233d",
+  "--sidebar-accent": "#1f3a5e",
   "--sidebar-accent-foreground": "#f8fafc",
   "--sidebar-border": "rgba(148,163,184,0.18)",
-  "--sidebar-ring": "rgba(139,92,246,0.38)",
+  "--sidebar-ring": "rgba(139,92,246,0.44)",
 } as CSSProperties;
 
 const navButtonClass =
@@ -157,9 +157,9 @@ export function AnalyzerSidebar() {
     <Sidebar
       collapsible="icon"
       style={sidebarTheme}
-      className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
+      className="bg-sidebar text-sidebar-foreground data-[side=left]:border-r-0 data-[side=right]:border-l-0"
     >
-      <SidebarHeader className="h-14 justify-center p-0">
+      <SidebarHeader className="h-[var(--sidebar-header-h)] justify-center p-0 pt-1">
         <SidebarMenu>
           <SidebarMenuItem className="flex justify-center">
             <SidebarMenuButton

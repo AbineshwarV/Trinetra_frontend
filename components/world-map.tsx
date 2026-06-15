@@ -44,7 +44,14 @@ export default function WorldMap({ items }: { items?: MapItem[] | null }) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerLayerRef = useRef<any>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [leafletReady, setLeafletReady] = useState(false);
+
+  useEffect(() => {
+    if ((globalThis as any).L) {
+      setLeafletReady(true);
+    }
+  }, []);
 
   const platformsOf = (item: MapItem) => {
     const md: any = item?.metadata || {};
@@ -130,22 +137,63 @@ export default function WorldMap({ items }: { items?: MapItem[] | null }) {
     mapRef.current = map;
     markerLayerRef.current = markerLayer;
 
-    setTimeout(() => {
+    const invalidate = () => {
       try {
         map.invalidateSize();
       } catch {
         // ignore
       }
-    }, 150);
+    };
+
+    const scheduleInvalidation = () => {
+      invalidate();
+      requestAnimationFrame(invalidate);
+      setTimeout(invalidate, 200);
+      setTimeout(invalidate, 600);
+    };
+
+    map.whenReady(scheduleInvalidation);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        scheduleInvalidation();
+      }
+    };
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+
+    const handleResize = () => {
+      scheduleInvalidation();
+    };
+    window.addEventListener("resize", handleResize);
+
+    const routeObserver = new MutationObserver(() => {
+      if (!mapDivRef.current) return;
+      scheduleInvalidation();
+    });
+    routeObserver.observe(document.body, { childList: true, subtree: true });
+
+    if (mapDivRef.current && typeof ResizeObserver !== "undefined") {
+      resizeObserverRef.current = new ResizeObserver(() => {
+        scheduleInvalidation();
+      });
+      resizeObserverRef.current.observe(mapDivRef.current);
+    }
 
     return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("resize", handleResize);
+      routeObserver.disconnect();
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
       try {
-        markerLayer?.clearLayers?.();
+        markerLayer.clearLayers();
       } catch {
         // ignore
       }
       try {
-        map?.remove?.();
+        map.remove();
       } catch {
         // ignore
       }
@@ -160,6 +208,11 @@ export default function WorldMap({ items }: { items?: MapItem[] | null }) {
     const map = mapRef.current;
     const markerLayer = markerLayerRef.current;
     if (!L || !map || !markerLayer) return;
+    try {
+      map.invalidateSize();
+    } catch {
+      // ignore
+    }
 
     const mapPopupHtml = (row: { region: string; count: number; items: MapItem[] }) => {
       const unique = (() => {

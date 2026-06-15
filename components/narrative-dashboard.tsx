@@ -5,6 +5,7 @@ import Top10Carousel from "./top10-carousel";
 import Top10BarChart from "./top10-bar-chart";
 import SocialTrendsSection from "./social-trends-section";
 import WorldMap from "./world-map";
+import LiveTrendingTable from "./live-trending-table";
 import {
   Activity,
   CalendarClock,
@@ -591,7 +592,44 @@ export async function NarrativeDashboardContent() {
   const mapItems = mapDashboardItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems);
   const mapRecords = Number(mapItems.length);
 
-  const top10Items = liveTrendingItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems).slice(0, 10);
+  const liveTrendingList = liveTrendingItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems);
+  const top10Items = liveTrendingList.slice(0, 10);
+  const top10Keys = new Set(top10Items.map((entry: any) => itemKey(entry)));
+  const liveTrendingRows = liveTrendingList.map((item: any, index: number) => {
+    const nsri = nsriView(item);
+    const cleanClaim = cleanDisplayText(item.claim || item.narrative || "Untitled intelligence");
+    const claim = readableHeadline(item.claim || item.narrative) || cleanClaim;
+    const platformsArr = Array.isArray(item.metadata?.platforms)
+      ? item.metadata.platforms
+      : item.metadata?.platforms
+        ? [String(item.metadata.platforms)]
+        : item.platform
+          ? [String(item.platform)]
+          : [];
+    const regionsArr = Array.isArray(item.metadata?.regions)
+      ? item.metadata.regions
+      : item.metadata?.regions
+        ? [String(item.metadata.regions)]
+        : item.region
+          ? [String(item.region)]
+          : [];
+
+    return {
+      key: `${item.rank ?? index}`,
+      rankLabel: `#${index + 1}`,
+      isTop10: top10Keys.has(itemKey(item)),
+      claim: claim.slice(0, 150),
+      source: item._live_source || "Live",
+      sector: item.metadata?.sector || item.sector || "-",
+      verdict: item.real_or_fake || item.verdict || "-",
+      nsriScore: formatNumber(nsri.score),
+      weightedScore: formatNumber(nsriWeightedScore(item)),
+      trendScore: formatNumber(Number(item.trend_score ?? 0)),
+      platforms: formatList(platformsArr.slice(0, 3), "-") ,
+      regions: formatList(regionsArr.slice(0, 3), "-"),
+    };
+  });
+
   const platformRows = Array.isArray(interactiveAnalytics?.platform_influence)
     ? interactiveAnalytics.platform_influence
         .map((row) => ({
@@ -775,101 +813,7 @@ export async function NarrativeDashboardContent() {
                 </div>
               </div>
 
-              <div className="mt-4 overflow-hidden rounded-[1.25rem] border border-white/10 bg-[rgba(7,15,34,0.86)] text-slate-100">
-                <div className="max-h-105 overflow-auto [scrollbar-width:thin] [scrollbar-color:rgba(94,114,140,0.92)_rgba(10,17,32,0.42)]">
-                  <table className="min-w-230 w-full border-separate border-spacing-0 text-left lg:min-w-full">
-                    <thead className="sticky top-0 z-10 bg-[rgba(7,15,34,0.96)]">
-                      <tr className="text-left text-[12px] font-semibold text-slate-200">
-                        <th className="border-b border-white/10 px-3 py-3">#</th>
-                        <th className="border-b border-white/10 px-3 py-3">Top</th>
-                        <th className="border-b border-white/10 px-3 py-3">Claim</th>
-                        <th className="border-b border-white/10 px-3 py-3">Input</th>
-                        <th className="border-b border-white/10 px-3 py-3">Sector</th>
-                        <th className="border-b border-white/10 px-3 py-3">Verdict</th>
-                        <th className="border-b border-white/10 px-3 py-3">NSRI</th>
-                        <th className="border-b border-white/10 px-3 py-3">Weighted</th>
-                        <th className="border-b border-white/10 px-3 py-3">Trend</th>
-                        <th className="border-b border-white/10 px-3 py-3">Sources</th>
-                        <th className="border-b border-white/10 px-3 py-3">Regions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {liveTrendingItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems).length ? (
-                        liveTrendingItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems).map((item: any, index: number) => {
-                          const nsri = nsriView(item);
-                          const topKeys = new Set(liveTrendingItems(reportItems, socialPayload as SocialTrendsPayload, qualityItems).slice(0, 10).map((entry: any) => itemKey(entry)));
-                          return (
-                            <tr
-                              key={`${item.rank ?? index}`}
-                              className={`align-top text-[12px] leading-5 transition-colors ${
-                                index % 2 === 0 ? "bg-[rgba(7,15,34,0.98)] text-slate-100" : "bg-[rgba(10,20,42,0.74)] text-slate-200"
-                              }`}
-                            >
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-400" : "text-slate-300"}`}>
-                                #{index + 1}
-                              </td>
-                              <td className="border-b border-white/10 py-3.5 pl-0 pr-3">
-                                {topKeys.has(itemKey(item)) ? <span className="inline-flex whitespace-nowrap rounded-full border border-emerald-300/30 bg-[rgba(16,185,129,0.16)] px-2.5 py-1 text-[10px] font-medium text-emerald-100">Top 10</span> : null}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 font-medium ${index % 2 === 0 ? "text-slate-100" : "text-slate-100"}`}>
-                                <div className="max-w-37.5 whitespace-normal wrap-break-word leading-5">
-                                  {cleanDisplayText(item.claim).slice(0, 150)}
-                                </div>
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                {item._live_source || "Live"}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                {item.metadata?.sector || item.sector || "-"}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                {item.real_or_fake || item.verdict || "-"}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                <b>{formatNumber(nsri.score)}</b>
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                {formatNumber(nsriWeightedScore(item))}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                {formatNumber(Number(item.trend_score ?? 0))}
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                <div className="max-w-30 whitespace-normal wrap-break-word leading-5">
-                                  {Array.isArray(item.metadata?.platforms)
-                                    ? item.metadata.platforms.join(", ")
-                                    : item.metadata?.platforms
-                                      ? String(item.metadata.platforms)
-                                      : item.platform
-                                        ? String(item.platform)
-                                        : "-"}
-                                </div>
-                              </td>
-                              <td className={`border-b border-white/10 px-3 py-3.5 ${index % 2 === 0 ? "text-slate-200" : "text-slate-300"}`}>
-                                <div className="max-w-30 whitespace-normal wrap-break-word leading-5">
-                                  {Array.isArray(item.metadata?.regions)
-                                    ? item.metadata.regions.join(", ")
-                                    : item.metadata?.regions
-                                      ? String(item.metadata.regions)
-                                      : item.region
-                                        ? String(item.region)
-                                        : "-"}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td className="px-4 py-6 text-sm text-slate-400" colSpan={11}>
-                            No live trending data
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <LiveTrendingTable rows={liveTrendingRows} />
             </section>
 
           </div>
