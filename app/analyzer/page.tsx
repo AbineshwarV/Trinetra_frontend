@@ -457,13 +457,34 @@ export default function AnalyzerPage() {
         setBackendInputType(uploads?.[0]?.input_type || uploads?.[0]?.detected_input_type || null);
       } else if (input.trim()) {
         const trimmedInput = input.trim();
+        const isLink = /^https?:\/\//i.test(trimmedInput);
+
+        if (isLink) {
+          const checkResponse = await apiFetch(
+            `/api/public-analysis-results/check?url=${encodeURIComponent(trimmedInput)}`,
+            { cache: "no-store" },
+          );
+          if (checkResponse.ok) {
+            const checkPayload = await checkResponse.json();
+            if (checkPayload?.found) {
+              setExistingPublic({
+                analysis_id: checkPayload.analysis_id,
+                created_at: checkPayload.created_at,
+              });
+              setLoading(false);
+              setStage("idle");
+              return;
+            }
+          }
+        }
+
         const inputResponse = await apiFetch("/api/inputs", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            kind: /^https?:\/\//i.test(trimmedInput) ? "link" : "text",
+            kind: isLink ? "link" : "text",
             content: trimmedInput,
           }),
         });
